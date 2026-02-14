@@ -7,6 +7,7 @@ import { GlassHeader } from "@/components/public/glass-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { demoTypologies } from "@/lib/demo-data";
+import { getTenantLanguage } from "@/server/tenant/language";
 
 type TypologyPageProps = {
   params: Promise<{
@@ -39,6 +40,7 @@ export async function generateMetadata({ params }: TypologyPageProps): Promise<M
 }
 
 export default async function TypologyPage({ params }: TypologyPageProps) {
+  const language = await getTenantLanguage();
   const { slug } = await params;
   const typology = demoTypologies.find((item) => item.slug === slug);
   if (!typology) {
@@ -61,7 +63,7 @@ export default async function TypologyPage({ params }: TypologyPageProps) {
   return (
     <div className="min-h-screen bg-slate-50">
       <PageEvent event="view_typology" path={`/typologies/${typology.slug}`} />
-      <GlassHeader />
+      <GlassHeader language={language} />
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6">
         <script
           type="application/ld+json"

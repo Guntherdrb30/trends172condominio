@@ -6,6 +6,7 @@ import { GlassHeader } from "@/components/public/glass-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { demoAmenities } from "@/lib/demo-data";
+import { getTenantLanguage } from "@/server/tenant/language";
 
 type AmenityPageProps = {
   params: Promise<{
@@ -28,6 +29,7 @@ export async function generateMetadata({ params }: AmenityPageProps): Promise<Me
 }
 
 export default async function AmenityPage({ params }: AmenityPageProps) {
+  const language = await getTenantLanguage();
   const { slug } = await params;
   const amenity = demoAmenities.find((item) => item.slug === slug);
   if (!amenity) {
@@ -43,7 +45,7 @@ export default async function AmenityPage({ params }: AmenityPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <GlassHeader />
+      <GlassHeader language={language} />
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(placeSchema) }} />
         <Card>
@@ -67,4 +69,3 @@ export default async function AmenityPage({ params }: AmenityPageProps) {
     </div>
   );
 }
-

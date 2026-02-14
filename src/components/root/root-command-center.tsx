@@ -12,6 +12,7 @@ type Section = "overview" | "users" | "site" | "commissions" | "condo" | "report
 type Tenant = {
   id: string;
   name: string;
+  defaultLanguage: "ES" | "EN" | "PT";
   domains: Array<{ id: string; host: string; isPrimary: boolean }>;
   logoUrl: string | null;
   primaryColor: string | null;
@@ -64,6 +65,7 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
   const [site, setSite] = useState({
     name: "",
     logoUrl: "",
+    defaultLanguage: "ES" as "ES" | "EN" | "PT",
     primaryColor: "#0f172a",
     secondaryColor: "#0ea5e9",
     heroTitle: "",
@@ -93,6 +95,7 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
     setSite({
       name: t.name,
       logoUrl: t.logoUrl ?? "",
+      defaultLanguage: t.defaultLanguage ?? "ES",
       primaryColor: t.primaryColor ?? "#0f172a",
       secondaryColor: t.secondaryColor ?? "#0ea5e9",
       heroTitle: t.heroTitle ?? "",
@@ -156,6 +159,7 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
       body: JSON.stringify({
         name: site.name,
         logoUrl: site.logoUrl || undefined,
+        defaultLanguage: site.defaultLanguage,
         primaryColor: site.primaryColor,
         secondaryColor: site.secondaryColor,
         heroTitle: site.heroTitle || undefined,
@@ -268,6 +272,7 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
           <Card><CardHeader><CardTitle>Branding y configuracion global</CardTitle></CardHeader><CardContent className="grid gap-2">
             <Input placeholder="Nombre del sitio" value={site.name} onChange={(e) => setSite((p) => ({ ...p, name: e.target.value }))} />
             <Input placeholder="Logo URL" value={site.logoUrl} onChange={(e) => setSite((p) => ({ ...p, logoUrl: e.target.value }))} />
+            <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={site.defaultLanguage} onChange={(e) => setSite((p) => ({ ...p, defaultLanguage: e.target.value as "ES" | "EN" | "PT" }))}><option value="ES">Espanol</option><option value="EN">English</option><option value="PT">Portugues</option></select>
             <div className="grid gap-2 sm:grid-cols-2"><Input placeholder="Color primario" value={site.primaryColor} onChange={(e) => setSite((p) => ({ ...p, primaryColor: e.target.value }))} /><Input placeholder="Color secundario" value={site.secondaryColor} onChange={(e) => setSite((p) => ({ ...p, secondaryColor: e.target.value }))} /></div>
             <Input placeholder="Hero title" value={site.heroTitle} onChange={(e) => setSite((p) => ({ ...p, heroTitle: e.target.value }))} />
             <Input placeholder="Hero subtitle" value={site.heroSubtitle} onChange={(e) => setSite((p) => ({ ...p, heroSubtitle: e.target.value }))} />

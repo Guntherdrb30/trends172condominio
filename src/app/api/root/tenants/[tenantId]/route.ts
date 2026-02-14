@@ -17,6 +17,7 @@ const updateTenantSchema = z.object({
   whatsappNumber: z.string().optional(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
+  defaultLanguage: z.enum(["ES", "EN", "PT"]).optional(),
   sellerCommissionPct: z.coerce.number().min(0).max(30).optional(),
   platformFeePct: z.coerce.number().min(0).max(10).optional(),
   reservationTtlHours: z.coerce.number().int().min(1).max(168).optional(),

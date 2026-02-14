@@ -31,6 +31,7 @@ async function main() {
       whatsappNumber: "+13055550123",
       seoTitle: "Articimento Premium | Condo Sales OS",
       seoDescription: "Demo tenant para ventas de condominios premium con flujo completo.",
+      defaultLanguage: "ES",
       platformFeePct: 2,
       sellerCommissionPct: 3,
       reservationTtlHours: 48,
@@ -486,4 +487,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

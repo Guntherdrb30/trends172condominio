@@ -71,6 +71,7 @@ If `prisma:seed` fails with `Can't reach database server at localhost:5432`, ver
 - Middleware normalizes host (`www`, `staging`, ports).
 - DAL context is mandatory and rejects missing `tenantId`.
 - Every business query in services filters by `tenantId`.
+- Tenant language is configurable by ROOT (`ES`, `EN`, `PT`) and public/auth UI adapts to that selection.
 
 ## Security model
 - RBAC roles: `CLIENT`, `SELLER`, `ADMIN`, `ROOT`.

@@ -6,8 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { type AppLanguage, getDictionary } from "@/lib/i18n";
 
-export function LoginForm() {
+export function LoginForm({ language = "ES" }: { language?: AppLanguage }) {
+  const t = getDictionary(language);
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") ?? "/app/client";
@@ -27,7 +29,7 @@ export function LoginForm() {
     });
     setLoading(false);
     if (result?.error) {
-      setError("Credenciales invalidas.");
+      setError(t.invalidCredentials);
       return;
     }
     router.push(nextPath);
@@ -36,18 +38,17 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="grid gap-4">
       <label className="text-sm">
-        Email
+        {t.email}
         <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
       </label>
       <label className="text-sm">
-        Password
+        {t.password}
         <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
       </label>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <Button type="submit" disabled={loading}>
-        {loading ? "Ingresando..." : "Ingresar"}
+        {loading ? t.signingIn : t.signIn}
       </Button>
     </form>
   );
 }
-

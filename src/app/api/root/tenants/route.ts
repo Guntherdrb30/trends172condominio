@@ -10,6 +10,7 @@ import { getTenantContext } from "@/server/tenant/context";
 const createTenantSchema = z.object({
   name: z.string().min(2),
   slug: z.string().min(2),
+  defaultLanguage: z.enum(["ES", "EN", "PT"]).optional(),
   whatsappNumber: z.string().optional(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       data: {
         name: payload.name,
         slug: payload.slug,
+        defaultLanguage: payload.defaultLanguage ?? "ES",
         whatsappNumber: payload.whatsappNumber,
         seoTitle: payload.seoTitle,
         seoDescription: payload.seoDescription,
@@ -60,4 +62,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-
