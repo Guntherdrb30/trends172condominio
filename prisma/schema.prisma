@@ -1,0 +1,846 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  SELLER
+  ADMIN
+  ROOT
+}
+
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  BLOCKED
+}
+
+enum ReservationStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+  CONVERTED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  DONE
+  CANCELED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
+enum SaleStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  CANCELED
+}
+
+enum InstallmentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  VOIDED
+}
+
+enum CondoChargeStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum LedgerEntryType {
+  PAYMENT_RECEIVED
+  PLATFORM_FEE
+  SELLER_COMMISSION
+  NET_TO_PROJECT
+}
+
+enum AssetType {
+  CONTRACT
+  VOUCHER
+  BROCHURE
+  PLAN
+  TOUR_MEDIA
+  OTHER
+}
+
+enum AssetVisibility {
+  PRIVATE
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  PAID
+}
+
+model Tenant {
+  id                          String            @id @default(cuid())
+  name                        String
+  slug                        String            @unique
+  logoUrl                     String?
+  primaryColor                String?           @default("#0f172a")
+  secondaryColor              String?           @default("#0ea5e9")
+  heroTitle                   String?
+  heroSubtitle                String?
+  whatsappNumber              String?
+  seoTitle                    String?
+  seoDescription              String?
+  reservationTtlHours         Int               @default(48)
+  platformFeePct              Decimal           @default(2.00) @db.Decimal(5, 2)
+  sellerCommissionPct         Decimal           @default(3.00) @db.Decimal(5, 2)
+  payrollEnabled              Boolean           @default(false)
+  createdAt                   DateTime          @default(now())
+  updatedAt                   DateTime          @updatedAt
+  domains                     Domain[]
+  memberships                 Membership[]
+  auditLogs                   AuditLog[]
+  analyticsEvents             AnalyticsEvent[]
+  buildings                   Building[]
+  towers                      Tower[]
+  floors                      Floor[]
+  typologies                  Typology[]
+  typologyMedia               TypologyMedia[]
+  tourScenes                  Tour360Scene[]
+  hotspots                    Hotspot[]
+  units                       Unit[]
+  amenityTypes                AmenityType[]
+  amenityInstances            AmenityInstance[]
+  amenityMedia                AmenityMedia[]
+  amenityPlans                AmenityPlan[]
+  leads                       Lead[]
+  appointments                Appointment[]
+  reservations                Reservation[]
+  sales                       Sale[]
+  paymentPlans                PaymentPlan[]
+  installments                Installment[]
+  payments                    Payment[]
+  ownerAccounts               OwnerAccount[]
+  unitOwnerships              UnitOwnership[]
+  condoFeePlans               CondoFeePlan[]
+  condoFeeCharges             CondoFeeCharge[]
+  condoFeePayments            CondoFeePayment[]
+  commissionRules             CommissionRule[]
+  commissionEntries           CommissionEntry[]
+  ledgerEntries               LedgerEntry[]
+  assets                      Asset[]
+  employees                   Employee[]
+  payrollRuns                 PayrollRun[]
+  payrollPayments             PayrollPayment[]
+  aiChatLogs                  AiChatLog[]
+}
+
+model Domain {
+  id        String   @id @default(cuid())
+  host      String   @unique
+  isPrimary Boolean  @default(false)
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String?
+  passwordHash  String?
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  memberships   Membership[]
+  auditLogs     AuditLog[]
+  analytics     AnalyticsEvent[]
+  leadLinks     Lead[]       @relation("LeadUser")
+  appointments  Appointment[] @relation("AppointmentUser")
+  reservations  Reservation[]
+  buyerSales    Sale[]       @relation("SaleBuyer")
+  sellerSales   Sale[]       @relation("SaleSeller")
+  commissionEntries CommissionEntry[] @relation("CommissionSeller")
+  payments      Payment[]    @relation("PaymentRegisteredBy")
+  assets        Asset[]      @relation("AssetUploader")
+  employees     Employee[]
+  aiChatLogs    AiChatLog[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, role])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String?
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  ip         String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String?
+  event      String
+  path       String?
+  referrer   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, event, createdAt])
+}
+
+model Building {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  slug      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  towers    Tower[]
+  units     Unit[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model Tower {
+  id         String   @id @default(cuid())
+  tenantId   String
+  buildingId String
+  name       String
+  code       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  floors     Floor[]
+  units      Unit[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, buildingId])
+}
+
+model Floor {
+  id        String   @id @default(cuid())
+  tenantId  String
+  towerId   String
+  number    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  units     Unit[]
+
+  @@unique([towerId, number])
+  @@index([tenantId, towerId])
+}
+
+model Typology {
+  id           String         @id @default(cuid())
+  tenantId     String
+  name         String
+  slug         String
+  description  String?
+  areaM2       Decimal?       @db.Decimal(10, 2)
+  bedrooms     Int?
+  bathrooms    Int?
+  parkingSpots Int?
+  basePrice    Decimal?       @db.Decimal(14, 2)
+  isPublished  Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  media        TypologyMedia[]
+  tourScenes   Tour360Scene[]
+  units        Unit[]
+  assets       Asset[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model TypologyMedia {
+  id         String   @id @default(cuid())
+  tenantId   String
+  typologyId String
+  kind       String
+  title      String?
+  url        String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  typology   Typology @relation(fields: [typologyId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, typologyId, kind])
+}
+
+model Tour360Scene {
+  id         String    @id @default(cuid())
+  tenantId   String
+  typologyId String
+  title      String
+  panoramaUrl String
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  typology   Typology  @relation(fields: [typologyId], references: [id], onDelete: Cascade)
+  hotspots   Hotspot[]
+
+  @@index([tenantId, typologyId])
+}
+
+model Hotspot {
+  id          String       @id @default(cuid())
+  tenantId    String
+  sceneId     String
+  label       String
+  x           Decimal      @db.Decimal(8, 4)
+  y           Decimal      @db.Decimal(8, 4)
+  targetSceneId String?
+  payload     Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scene       Tour360Scene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sceneId])
+}
+
+model Unit {
+  id            String            @id @default(cuid())
+  tenantId      String
+  buildingId    String
+  towerId       String
+  floorId       String
+  typologyId    String
+  code          String
+  slug          String
+  areaM2        Decimal           @db.Decimal(10, 2)
+  price         Decimal           @db.Decimal(14, 2)
+  view          String?
+  status        UnitStatus        @default(AVAILABLE)
+  geoPolygon    Json?
+  featured      Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  building      Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  tower         Tower             @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  floor         Floor             @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  typology      Typology          @relation(fields: [typologyId], references: [id], onDelete: Restrict)
+  leads         Lead[]
+  appointments  Appointment[]
+  reservations  Reservation[]
+  sales         Sale[]
+  ownerAccounts OwnerAccount[]
+  ownerships    UnitOwnership[]
+  condoCharges  CondoFeeCharge[]
+  assets        Asset[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, slug])
+  @@index([tenantId, status, typologyId])
+}
+
+model AmenityType {
+  id          String            @id @default(cuid())
+  tenantId    String
+  name        String
+  slug        String
+  description String?
+  icon        String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  instances   AmenityInstance[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+model AmenityInstance {
+  id            String        @id @default(cuid())
+  tenantId      String
+  amenityTypeId String
+  title         String
+  slug          String
+  description   String?
+  dimensionsM2  Decimal?      @db.Decimal(10, 2)
+  locationHint  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amenityType   AmenityType   @relation(fields: [amenityTypeId], references: [id], onDelete: Restrict)
+  media         AmenityMedia[]
+  plans         AmenityPlan[]
+  assets        Asset[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, amenityTypeId])
+}
+
+model AmenityMedia {
+  id          String          @id @default(cuid())
+  tenantId    String
+  amenityId   String
+  title       String?
+  url         String
+  mediaType   String
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amenity     AmenityInstance @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, amenityId])
+}
+
+model AmenityPlan {
+  id          String          @id @default(cuid())
+  tenantId    String
+  amenityId   String
+  title       String?
+  url         String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amenity     AmenityInstance @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, amenityId])
+}
+
+model Lead {
+  id             String       @id @default(cuid())
+  tenantId       String
+  userId         String?
+  unitId         String?
+  fullName       String
+  email          String?
+  phone          String?
+  source         String?
+  status         LeadStatus   @default(NEW)
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user           User?        @relation("LeadUser", fields: [userId], references: [id], onDelete: SetNull)
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  appointments   Appointment[]
+  reservations   Reservation[]
+  sales          Sale[]
+
+  @@index([tenantId, status, createdAt])
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  tenantId    String
+  leadId      String?
+  userId      String?
+  unitId      String?
+  scheduledAt DateTime
+  channel     String?
+  status      AppointmentStatus @default(SCHEDULED)
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead        Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  user        User?             @relation("AppointmentUser", fields: [userId], references: [id], onDelete: SetNull)
+  unit        Unit?             @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, scheduledAt, status])
+}
+
+model Reservation {
+  id         String            @id @default(cuid())
+  tenantId   String
+  unitId     String
+  leadId     String?
+  userId     String?
+  expiresAt  DateTime
+  status     ReservationStatus @default(ACTIVE)
+  notes      String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit       Unit              @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  lead       Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  user       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assets     Asset[]
+  sale       Sale?
+
+  @@index([tenantId, status, expiresAt])
+  @@index([tenantId, unitId])
+}
+
+model Sale {
+  id            String          @id @default(cuid())
+  tenantId      String
+  unitId        String
+  leadId        String?
+  reservationId String?         @unique
+  buyerId       String?
+  sellerId      String?
+  price         Decimal         @db.Decimal(14, 2)
+  currency      String          @default("USD")
+  status        SaleStatus      @default(DRAFT)
+  closedAt      DateTime?
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit          Unit            @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  lead          Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  reservation   Reservation?    @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  buyer         User?           @relation("SaleBuyer", fields: [buyerId], references: [id], onDelete: SetNull)
+  seller        User?           @relation("SaleSeller", fields: [sellerId], references: [id], onDelete: SetNull)
+  paymentPlans  PaymentPlan[]
+  payments      Payment[]
+  commissions   CommissionEntry[]
+  ledgerEntries LedgerEntry[]
+  assets        Asset[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, unitId])
+}
+
+model PaymentPlan {
+  id            String        @id @default(cuid())
+  tenantId      String
+  saleId        String
+  title         String
+  totalAmount   Decimal       @db.Decimal(14, 2)
+  startDate     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale          Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  installments  Installment[]
+
+  @@index([tenantId, saleId])
+}
+
+model Installment {
+  id            String           @id @default(cuid())
+  tenantId      String
+  paymentPlanId String
+  dueDate       DateTime
+  amount        Decimal          @db.Decimal(14, 2)
+  paidAmount    Decimal          @default(0) @db.Decimal(14, 2)
+  status        InstallmentStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentPlan   PaymentPlan      @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
+  payments      Payment[]
+
+  @@index([tenantId, dueDate, status])
+  @@index([tenantId, paymentPlanId])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  tenantId       String
+  saleId         String
+  installmentId  String?
+  registeredById String?
+  amount         Decimal       @db.Decimal(14, 2)
+  currency       String        @default("USD")
+  method         String?
+  reference      String?
+  paidAt         DateTime      @default(now())
+  status         PaymentStatus @default(CONFIRMED)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale           Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  installment    Installment?  @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  registeredBy   User?         @relation("PaymentRegisteredBy", fields: [registeredById], references: [id], onDelete: SetNull)
+  ledgerEntries  LedgerEntry[]
+  assets         Asset[]
+
+  @@index([tenantId, paidAt, status])
+  @@index([tenantId, saleId])
+}
+
+model OwnerAccount {
+  id           String         @id @default(cuid())
+  tenantId     String
+  userId       String?
+  unitId       String?
+  fullName     String
+  email        String?
+  phone        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit         Unit?          @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  ownerships   UnitOwnership[]
+  condoCharges CondoFeeCharge[]
+
+  @@index([tenantId])
+}
+
+model UnitOwnership {
+  id             String       @id @default(cuid())
+  tenantId       String
+  unitId         String
+  ownerAccountId String
+  startsAt       DateTime
+  endsAt         DateTime?
+  percentage     Decimal      @default(100) @db.Decimal(5, 2)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit           Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  ownerAccount   OwnerAccount @relation(fields: [ownerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, unitId])
+}
+
+model CondoFeePlan {
+  id          String         @id @default(cuid())
+  tenantId    String
+  title       String
+  monthlyFee  Decimal        @db.Decimal(14, 2)
+  lateFeePct  Decimal        @default(0) @db.Decimal(5, 2)
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  charges     CondoFeeCharge[]
+
+  @@index([tenantId, active])
+}
+
+model CondoFeeCharge {
+  id             String           @id @default(cuid())
+  tenantId       String
+  planId         String
+  unitId         String
+  ownerAccountId String
+  dueDate        DateTime
+  amount         Decimal          @db.Decimal(14, 2)
+  lateFeeAmount  Decimal          @default(0) @db.Decimal(14, 2)
+  paidAmount     Decimal          @default(0) @db.Decimal(14, 2)
+  status         CondoChargeStatus @default(PENDING)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan           CondoFeePlan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  unit           Unit             @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  ownerAccount   OwnerAccount     @relation(fields: [ownerAccountId], references: [id], onDelete: Restrict)
+  payments       CondoFeePayment[]
+
+  @@index([tenantId, dueDate, status])
+}
+
+model CondoFeePayment {
+  id         String    @id @default(cuid())
+  tenantId   String
+  chargeId   String
+  amount     Decimal   @db.Decimal(14, 2)
+  paidAt     DateTime  @default(now())
+  method     String?
+  reference  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  charge     CondoFeeCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, paidAt])
+}
+
+model CommissionRule {
+  id          String   @id @default(cuid())
+  tenantId    String
+  role        Role?
+  percentage  Decimal  @db.Decimal(5, 2)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entries     CommissionEntry[]
+
+  @@index([tenantId, active])
+}
+
+model CommissionEntry {
+  id          String   @id @default(cuid())
+  tenantId    String
+  saleId      String
+  sellerId    String?
+  ruleId      String?
+  percentage  Decimal  @db.Decimal(5, 2)
+  amount      Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  seller      User?    @relation("CommissionSeller", fields: [sellerId], references: [id], onDelete: SetNull)
+  rule        CommissionRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, saleId])
+}
+
+model LedgerEntry {
+  id         String          @id @default(cuid())
+  tenantId   String
+  saleId     String?
+  paymentId  String?
+  type       LedgerEntryType
+  amount     Decimal         @db.Decimal(14, 2)
+  currency   String          @default("USD")
+  notes      String?
+  metadata   Json?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale       Sale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  payment    Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, type, createdAt])
+}
+
+model Asset {
+  id               String          @id @default(cuid())
+  tenantId         String
+  uploadedById     String?
+  type             AssetType
+  visibility       AssetVisibility @default(PRIVATE)
+  name             String
+  contentType      String?
+  bytes            Int?
+  blobPath         String
+  blobUrl          String?
+  checksum         String?
+  expiresAt        DateTime?
+  saleId           String?
+  reservationId    String?
+  paymentId        String?
+  typologyId       String?
+  amenityInstanceId String?
+  unitId           String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedBy       User?           @relation("AssetUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  sale             Sale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  reservation      Reservation?    @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  payment          Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  typology         Typology?       @relation(fields: [typologyId], references: [id], onDelete: SetNull)
+  amenityInstance  AmenityInstance? @relation(fields: [amenityInstanceId], references: [id], onDelete: SetNull)
+  unit             Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, type, createdAt])
+}
+
+model Employee {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  fullName    String
+  roleLabel   String?
+  salaryBase  Decimal  @db.Decimal(14, 2)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  payrollPayments PayrollPayment[]
+
+  @@index([tenantId, active])
+}
+
+model PayrollRun {
+  id          String          @id @default(cuid())
+  tenantId    String
+  periodLabel String
+  status      PayrollRunStatus @default(DRAFT)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments    PayrollPayment[]
+
+  @@unique([tenantId, periodLabel])
+  @@index([tenantId, status])
+}
+
+model PayrollPayment {
+  id         String    @id @default(cuid())
+  tenantId   String
+  runId      String
+  employeeId String
+  amount     Decimal   @db.Decimal(14, 2)
+  paidAt     DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  run        PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, runId])
+}
+
+model AiChatLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String?
+  profile    String
+  prompt     String
+  response   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, profile, createdAt])
+}

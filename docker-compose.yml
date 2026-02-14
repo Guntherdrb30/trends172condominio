@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: condo-sales-os-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: condo
+      POSTGRES_PASSWORD: condo
+      POSTGRES_DB: condo_sales_os
+    ports:
+      - "5432:5432"
+    volumes:
+      - condo_sales_os_pgdata:/var/lib/postgresql/data
+
+volumes:
+  condo_sales_os_pgdata:
+
