@@ -37,13 +37,15 @@ export async function getTenantContext(): Promise<TenantContext | null> {
 
   const domain = await prisma.domain.findFirst({
     where: {
-      host: {
-        equals: host,
-        mode: "insensitive",
-      },
+      host,
     },
     include: {
-      tenant: true,
+      tenant: {
+        select: {
+          id: true,
+          slug: true,
+        },
+      },
     },
   });
 
@@ -55,7 +57,12 @@ export async function getTenantContext(): Promise<TenantContext | null> {
             host: "localhost",
           },
           include: {
-            tenant: true,
+            tenant: {
+              select: {
+                id: true,
+                slug: true,
+              },
+            },
           },
         })
       : host.endsWith(".vercel.app")
@@ -63,11 +70,16 @@ export async function getTenantContext(): Promise<TenantContext | null> {
             where: {
               isPrimary: true,
             },
-            include: {
-              tenant: true,
+          include: {
+            tenant: {
+              select: {
+                id: true,
+                slug: true,
+              },
             },
-            orderBy: {
-              createdAt: "asc",
+          },
+          orderBy: {
+            createdAt: "asc",
             },
           })
         : null);
