@@ -58,7 +58,19 @@ export async function getTenantContext(): Promise<TenantContext | null> {
             tenant: true,
           },
         })
-      : null);
+      : host.endsWith(".vercel.app")
+        ? await prisma.domain.findFirst({
+            where: {
+              isPrimary: true,
+            },
+            include: {
+              tenant: true,
+            },
+            orderBy: {
+              createdAt: "asc",
+            },
+          })
+        : null);
 
   if (!fallbackDomain?.tenant) {
     return null;
@@ -92,4 +104,3 @@ export async function getTenantContext(): Promise<TenantContext | null> {
     privileged,
   };
 }
-
