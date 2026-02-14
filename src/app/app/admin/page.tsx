@@ -1,6 +1,8 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePageAccess } from "@/server/auth/page-access";
+import { createDalContext } from "@/server/dal/context";
+import { getTenantReportsSummary } from "@/server/services/reports.service";
 
 const links = [
   { href: "/app/client", label: "Client" },
@@ -12,7 +14,8 @@ const links = [
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  await requirePageAccess(["ADMIN", "ROOT"], "/app/admin");
+  const tenantCtx = await requirePageAccess(["ADMIN", "ROOT"], "/app/admin");
+  const summary = await getTenantReportsSummary(createDalContext(tenantCtx));
   return (
     <DashboardShell
       title="Admin"
@@ -24,25 +27,34 @@ export default async function AdminDashboardPage() {
           <CardHeader>
             <CardTitle>Inventario</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-slate-700">Disponible: 6 | Reservado: 2 | Vendido: 1</CardContent>
+          <CardContent className="text-sm text-slate-700">
+            Leads: {summary.leads} | Reservas activas: {summary.reservations.active}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Reservas por vencer</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-slate-700">3 reservas expiran en menos de 24h</CardContent>
+          <CardContent className="text-sm text-slate-700">
+            {summary.reservations.expiring24h} reservas expiran en menos de 24h
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Pagos + ledger</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-slate-700">Fee plataforma 2% aplicado correctamente.</CardContent>
+          <CardContent className="text-sm text-slate-700">
+            Recibido: ${summary.payments.totalReceived.toLocaleString("en-US")} | Fee plataforma: $
+            {summary.ledger.platformFee.toLocaleString("en-US")}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Morosidad condominio</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-slate-700">8.4% en cartera vencida mensual.</CardContent>
+          <CardContent className="text-sm text-slate-700">
+            Pendiente: ${summary.condo.outstanding.toLocaleString("en-US")} | Mora: {summary.condo.overdueCount} cargos
+          </CardContent>
         </Card>
       </div>
     </DashboardShell>
