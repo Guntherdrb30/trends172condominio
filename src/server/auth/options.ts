@@ -12,7 +12,11 @@ function sortByRolePriority<T extends { role: Role }>(items: T[]) {
 }
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.AUTH_SECRET,
+  secret:
+    process.env.AUTH_SECRET ??
+    process.env.NEXTAUTH_SECRET ??
+    process.env.ROOT_MASTER_KEY ??
+    "replace-me-in-production",
   session: {
     strategy: "jwt",
   },
@@ -77,4 +81,3 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
-
