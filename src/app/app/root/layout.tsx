@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const links = [
   { href: "/app/root", label: "Dashboard" },
   { href: "/app/root/projects/new", label: "New Project" },
+  { href: "/app/root/marketplace", label: "Marketplace" },
   { href: "/app/root/site", label: "Site Builder" },
   { href: "/app/root/configurator", label: "Control Center" },
   { href: "/app/root/ai-configurator", label: "AI Configurator" },

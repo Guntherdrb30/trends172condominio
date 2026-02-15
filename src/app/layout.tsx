@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Space_Mono } from "next/font/google";
+import { Cormorant_Garamond, Plus_Jakarta_Sans, Space_Mono } from "next/font/google";
 
 import { demoTenant } from "@/lib/demo-data";
 import "./globals.css";
@@ -14,6 +14,13 @@ const spaceMono = Space_Mono({
   variable: "--font-space-mono",
   subsets: ["latin"],
   weight: ["400", "700"],
+  display: "swap",
+});
+
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -56,7 +63,7 @@ export default function RootLayout({
 
   return (
     <html lang="es">
-      <body className={`${plusJakarta.variable} ${spaceMono.variable} antialiased`}>
+      <body className={`${plusJakarta.variable} ${spaceMono.variable} ${cormorant.variable} antialiased`}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}

@@ -276,9 +276,14 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
           </CardHeader>
           <CardContent className="flex flex-wrap items-center justify-between gap-2">
             <p>{status || `Tenant activo: ${tenant?.name ?? "-"}`}</p>
-            <Button asChild size="sm">
-              <Link href="/app/root/projects/new">Crear nuevo proyecto</Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href="/app/root/marketplace">Ajustes marketplace</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/app/root/projects/new">Crear nuevo proyecto</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

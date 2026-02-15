@@ -19,6 +19,7 @@
   --color-accent: var(--accent);
   --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-cormorant);
   --font-mono: var(--font-space-mono);
 }
 
@@ -36,4 +37,8 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+.font-serif {
+  font-family: var(--font-cormorant), "Times New Roman", serif;
 }

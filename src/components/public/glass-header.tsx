@@ -33,7 +33,7 @@ export async function GlassHeader({ language = "ES" }: { language?: AppLanguage 
     ? await Promise.all([
         prisma.tenant.findUnique({
           where: { id: tenantCtx.tenantId },
-          select: { name: true },
+          select: { name: true, type: true, isPlatform: true },
         }),
         prisma.siteNavigation.findUnique({
           where: {
@@ -50,11 +50,18 @@ export async function GlassHeader({ language = "ES" }: { language?: AppLanguage 
     : [null, null];
 
   const navItems = normalizeNav(navigation?.publishedItems);
-  const fallbackNav: NavItem[] = [
-    { href: "/availability", label: t.navMasterplan },
-    { href: "/typologies/aurora-2br", label: t.navTypologies },
-    { href: "/amenities/sky-lounge", label: t.navAmenities },
-  ];
+  const isPlatformMode = Boolean(tenant?.type === "PLATFORM" || tenant?.isPlatform);
+  const fallbackNav: NavItem[] = isPlatformMode
+    ? [
+        { href: "/#projects", label: "Proyectos" },
+        { href: "/#amenity-spots", label: "Amenidades" },
+        { href: "/#partners", label: "Contactanos" },
+      ]
+    : [
+        { href: "/availability", label: t.navMasterplan },
+        { href: "/typologies/aurora-2br", label: t.navTypologies },
+        { href: "/amenities/sky-lounge", label: t.navAmenities },
+      ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/20 bg-white/60 backdrop-blur-xl">
