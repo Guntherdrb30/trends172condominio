@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "public"."TenantType" AS ENUM ('PLATFORM', 'CUSTOMER');
 
 -- CreateEnum
