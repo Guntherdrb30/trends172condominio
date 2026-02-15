@@ -47,11 +47,9 @@ npm run prisma:seed
 npm run dev
 ```
 
-If `prisma:seed` fails with `Can't reach database server at localhost:5432`, verify Docker Desktop is running and retry steps 4-6.
-
 ## Scripts
 - `npm run dev`: local dev server
-- `npm run build`: production build
+- `npm run build`: production build (webpack mode)
 - `npm run lint`: eslint checks
 - `npm run test`: smoke + tenant-guard tests
 - `npm run prisma:generate`: prisma client generation
@@ -66,12 +64,42 @@ If `prisma:seed` fails with `Can't reach database server at localhost:5432`, ver
 - `seller@articimento.local` / `seller123`
 - `client@articimento.local` / `client123`
 
+## Platform / Root model (Option B)
+- Seed creates tenant `PLATFORM` and tenant demo `CUSTOMER` (`Articimento Premium`).
+- `ROOT` membership exists only in `PLATFORM`.
+- `/app/root` uses persistent `targetTenantId` selector via secure httpOnly cookie.
+- Root builder APIs resolve and enforce this `targetTenantId`.
+
+## Invite + signup model
+- `ADMIN` and `SELLER`: invite-only.
+  - `POST /api/root/invites`
+  - `POST /api/auth/accept-invite`
+  - UI: `/invite/accept`
+- `CLIENT`: self-signup by domain.
+  - `POST /api/auth/signup`
+  - UI: `/signup`
+  - Controlled by `Tenant.selfSignupEnabled` + `Domain.allowClientSignup`.
+
+## Site Builder (Draft / Publish / Versioning)
+- Prisma models: `Page`, `PageVersion`, `ThemeSettings`, `SiteNavigation`, `Translation`.
+- Root pages:
+  - `/app/root/site`
+  - `/app/root/ai-configurator`
+- Root builder APIs:
+  - `GET/POST /api/root/site/pages`
+  - `GET/PATCH /api/root/site/pages/[slug]`
+  - `POST /api/root/site/pages/[slug]/publish`
+  - `POST /api/root/site/pages/[slug]/rollback`
+  - `GET/POST /api/root/site/theme`
+  - `GET/POST /api/root/site/navigation`
+- Public renderer reads published page versions for `/` and `/availability`.
+
 ## Multi-tenant notes
 - Tenant is resolved by `Host` header via `Domain` table.
 - Middleware normalizes host (`www`, `staging`, ports).
 - DAL context is mandatory and rejects missing `tenantId`.
 - Every business query in services filters by `tenantId`.
-- Tenant language is configurable by ROOT (`ES`, `EN`, `PT`) and public/auth UI adapts to that selection.
+- Generic `Translation` table supports ES/EN fallback to base fields.
 
 ## Security model
 - RBAC roles: `CLIENT`, `SELLER`, `ADMIN`, `ROOT`.
@@ -81,13 +109,7 @@ If `prisma:seed` fails with `Can't reach database server at localhost:5432`, ver
   - `GET /api/blob/signed-url?assetId=...`
   - `GET /api/blob/access?token=...`
 - Audit log tracks critical actions and signed asset access.
-- AI endpoint never executes raw DB queries from prompts; only internal tools:
-  - `searchUnits`
-  - `getTypology`
-  - `createAppointment`
-  - `createReservation`
-  - `getReports`
-  - `generateSignedAssetUrl`
+- AI endpoint never executes raw DB queries from prompts; only internal tools.
 
 ## Functional routes
 - Public:
@@ -97,15 +119,25 @@ If `prisma:seed` fails with `Can't reach database server at localhost:5432`, ver
   - `/amenities/[slug]`
 - Auth:
   - `/login`
+  - `/signup`
+  - `/invite/accept`
 - Dashboards:
   - `/app/client`
   - `/app/seller`
   - `/app/admin`
   - `/app/root`
   - `/app/root/configurator`
-- Core APIs:
-  - `POST /api/reservations/cancel`
-  - `POST /api/sales/attach-docs`
+  - `/app/root/site`
+  - `/app/root/ai-configurator`
+
+## Migration note
+- Incremental migration added:
+  - `prisma/migrations/20260215143000_platform_sitebuilder_i18n/migration.sql`
+- If CLI cannot reach DB, run these commands in your own terminal/environment:
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
 
 ## Deployment notes (Vercel)
 - Add all env vars in Vercel Project Settings.

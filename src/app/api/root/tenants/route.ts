@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireRole } from "@/server/auth/guards";
+import { requirePlatformRoot } from "@/server/auth/guards";
 import { prisma } from "@/server/db";
 import { writeAuditLog } from "@/server/dal/audit-log";
 import { createDalContext } from "@/server/dal/context";
@@ -18,13 +18,12 @@ const createTenantSchema = z.object({
 
 export async function GET() {
   try {
-    const ctx = await getTenantContext();
-    requireRole(ctx, ["ROOT"]);
+    await requirePlatformRoot(await getTenantContext());
     const tenants = await prisma.tenant.findMany({
       include: {
         domains: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ type: "asc" }, { createdAt: "desc" }],
     });
     return NextResponse.json({ ok: true, tenants });
   } catch (error) {
@@ -35,13 +34,14 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const ctx = await getTenantContext();
-    requireRole(ctx, ["ROOT"]);
+    const ctx = await requirePlatformRoot(await getTenantContext());
     const payload = createTenantSchema.parse(await request.json());
     const tenant = await prisma.tenant.create({
       data: {
         name: payload.name,
         slug: payload.slug,
+        type: "CUSTOMER",
+        selfSignupEnabled: true,
         defaultLanguage: payload.defaultLanguage ?? "ES",
         whatsappNumber: payload.whatsappNumber,
         seoTitle: payload.seoTitle,

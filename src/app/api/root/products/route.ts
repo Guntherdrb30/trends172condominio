@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { Role } from "@prisma/client";
 import { z } from "zod";
 
 import { requireRole } from "@/server/auth/guards";
 import { prisma } from "@/server/db";
 import { writeAuditLog } from "@/server/dal/audit-log";
 import { createDalContext } from "@/server/dal/context";
+import { resolveScopedTenantId } from "@/server/root/target-tenant";
 import { getTenantContext } from "@/server/tenant/context";
 
 const querySchema = z.object({
@@ -37,14 +37,6 @@ function toSlug(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function resolveTenantId(ctx: { tenantId: string; role?: Role }, tenantId?: string) {
-  if (!tenantId) return ctx.tenantId;
-  if (ctx.role !== "ROOT" && tenantId !== ctx.tenantId) {
-    throw new Error("Cross-tenant product management denied.");
-  }
-  return tenantId;
-}
-
 export async function GET(request: Request) {
   try {
     const ctx = await getTenantContext();
@@ -53,7 +45,12 @@ export async function GET(request: Request) {
     const { tenantId } = querySchema.parse({
       tenantId: url.searchParams.get("tenantId") ?? undefined,
     });
-    const targetTenantId = resolveTenantId(ctx, tenantId);
+    const scoped = await resolveScopedTenantId({
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
+    const targetTenantId = tenantId && ctx.role !== "ROOT" ? tenantId : scoped.targetTenantId;
 
     const products = await prisma.typology.findMany({
       where: {
@@ -84,7 +81,13 @@ export async function POST(request: Request) {
     const ctx = await getTenantContext();
     requireRole(ctx, ["ROOT", "ADMIN"]);
     const payload = createProductSchema.parse(await request.json());
-    const targetTenantId = resolveTenantId(ctx, payload.tenantId);
+    const scoped = await resolveScopedTenantId({
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
+    const targetTenantId =
+      payload.tenantId && ctx.role !== "ROOT" ? payload.tenantId : scoped.targetTenantId;
 
     const baseSlug = payload.slug ? toSlug(payload.slug) : toSlug(payload.name);
     const safeSlug = baseSlug || `product-${Date.now()}`;
@@ -166,4 +169,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-

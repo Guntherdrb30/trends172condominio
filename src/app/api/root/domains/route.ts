@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireRole } from "@/server/auth/guards";
+import { requirePlatformRoot } from "@/server/auth/guards";
 import { normalizeHost } from "@/server/tenant/normalize-host";
 import { prisma } from "@/server/db";
 import { writeAuditLog } from "@/server/dal/audit-log";
@@ -16,14 +16,16 @@ const createDomainSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const ctx = await getTenantContext();
-    requireRole(ctx, ["ROOT"]);
+    const ctx = await requirePlatformRoot(await getTenantContext());
     const payload = createDomainSchema.parse(await request.json());
+    const normalizedHost = normalizeHost(payload.host);
     const domain = await prisma.domain.create({
       data: {
         tenantId: payload.tenantId,
-        host: normalizeHost(payload.host),
+        host: normalizedHost,
+        normalizedHost,
         isPrimary: payload.isPrimary ?? false,
+        allowClientSignup: true,
       },
     });
 
@@ -40,4 +42,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-

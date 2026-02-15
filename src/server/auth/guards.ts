@@ -55,10 +55,45 @@ export async function requireTenantMembership(
   };
 }
 
+export async function requirePlatformRoot(
+  ctx: TenantContext | null,
+): Promise<TenantContext & { userId: string; role: "ROOT"; platformTenantId: string }> {
+  requireAuth(ctx);
+
+  const membership = await prisma.membership.findFirst({
+    where: {
+      userId: ctx.userId,
+      role: "ROOT",
+      tenant: {
+        OR: [{ type: "PLATFORM" }, { isPlatform: true }],
+      },
+    },
+    include: {
+      tenant: {
+        select: {
+          id: true,
+          slug: true,
+        },
+      },
+    },
+  });
+
+  if (!membership?.tenant) {
+    throw new GuardError("Platform ROOT membership required", 403);
+  }
+
+  return {
+    ...ctx,
+    role: "ROOT",
+    tenantId: membership.tenant.id,
+    tenantSlug: membership.tenant.slug,
+    platformTenantId: membership.tenant.id,
+  };
+}
+
 export function requirePrivilegedMode(ctx: TenantContext | null) {
   requireRole(ctx, ["ADMIN", "ROOT"]);
   if (!ctx.privileged && ctx.role !== "ROOT") {
     throw new GuardError("Privileged mode required", 403);
   }
 }
-

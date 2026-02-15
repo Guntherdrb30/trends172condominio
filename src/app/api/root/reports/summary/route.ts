@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireRole } from "@/server/auth/guards";
 import { createDalContext } from "@/server/dal/context";
+import { resolveScopedTenantId } from "@/server/root/target-tenant";
 import { getTenantReportsSummary } from "@/server/services/reports.service";
 import { getTenantContext } from "@/server/tenant/context";
 
@@ -19,11 +20,18 @@ export async function GET(request: Request) {
       tenantId: url.searchParams.get("tenantId") ?? undefined,
     });
 
-    const summary = await getTenantReportsSummary(createDalContext(ctx), payload);
+    const scoped = await resolveScopedTenantId({
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
+
+    const summary = await getTenantReportsSummary(createDalContext(ctx), {
+      tenantId: payload.tenantId && ctx.role !== "ROOT" ? payload.tenantId : scoped.targetTenantId,
+    });
     return NextResponse.json({ ok: true, summary });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load reports";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-

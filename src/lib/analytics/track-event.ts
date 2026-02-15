@@ -5,6 +5,7 @@ export type FrontendTrackPayload = {
     | "view_home"
     | "view_typology"
     | "view_unit"
+    | "open_masterplan"
     | "open_tour_360"
     | "click_whatsapp"
     | "start_reservation"
@@ -27,4 +28,3 @@ export async function trackEventClient(payload: FrontendTrackPayload) {
     // Best-effort tracking only.
   }
 }
-

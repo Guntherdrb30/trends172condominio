@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,14 @@ export function LoginForm({ language = "ES" }: { language?: AppLanguage }) {
       <Button type="submit" disabled={loading}>
         {loading ? t.signingIn : t.signIn}
       </Button>
+      <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+        <Link href="/signup" className="underline underline-offset-2">
+          Registro cliente
+        </Link>
+        <Link href="/invite/accept" className="underline underline-offset-2">
+          Aceptar invitacion
+        </Link>
+      </div>
     </form>
   );
 }

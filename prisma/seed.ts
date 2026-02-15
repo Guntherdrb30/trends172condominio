@@ -5,9 +5,12 @@ const prisma = new PrismaClient();
 
 async function main() {
   const demoSlug = "articimento-premium";
+  const platformSlug = "platform";
   await prisma.tenant.deleteMany({
     where: {
-      slug: demoSlug,
+      slug: {
+        in: [demoSlug, platformSlug],
+      },
     },
   });
 
@@ -24,10 +27,27 @@ async function main() {
     },
   });
 
+  const platformTenant = await prisma.tenant.create({
+    data: {
+      name: "Condo Sales OS Platform",
+      slug: platformSlug,
+      type: "PLATFORM",
+      isPlatform: true,
+      selfSignupEnabled: false,
+      defaultLanguage: "ES",
+      domains: {
+        create: [{ host: "platform.localhost", normalizedHost: "platform.localhost", isPrimary: true, allowClientSignup: false }],
+      },
+    },
+  });
+
   const tenant = await prisma.tenant.create({
     data: {
       name: "Articimento Premium",
       slug: demoSlug,
+      type: "CUSTOMER",
+      isPlatform: false,
+      selfSignupEnabled: true,
       whatsappNumber: "+13055550123",
       seoTitle: "Articimento Premium | Condo Sales OS",
       seoDescription: "Demo tenant para ventas de condominios premium con flujo completo.",
@@ -37,8 +57,8 @@ async function main() {
       reservationTtlHours: 48,
       domains: {
         create: [
-          { host: "localhost", isPrimary: true },
-          { host: "127.0.0.1", isPrimary: false },
+          { host: "localhost", normalizedHost: "localhost", isPrimary: true, allowClientSignup: true },
+          { host: "127.0.0.1", normalizedHost: "127.0.0.1", isPrimary: false, allowClientSignup: true },
         ],
       },
     },
@@ -77,7 +97,7 @@ async function main() {
 
   await prisma.membership.createMany({
     data: [
-      { tenantId: tenant.id, userId: rootUser.id, role: "ROOT" },
+      { tenantId: platformTenant.id, userId: rootUser.id, role: "ROOT" },
       { tenantId: tenant.id, userId: adminUser.id, role: "ADMIN" },
       { tenantId: tenant.id, userId: sellerUser.id, role: "SELLER" },
       { tenantId: tenant.id, userId: clientUser.id, role: "CLIENT" },
@@ -451,6 +471,195 @@ async function main() {
     ],
   });
 
+  await prisma.themeSettings.upsert({
+    where: {
+      tenantId: tenant.id,
+    },
+    update: {
+      fontPrimary: "Sora",
+      fontSecondary: "IBM Plex Sans",
+      buttonRadius: "0.85rem",
+      settings: {
+        tone: "premium-clean",
+      },
+    },
+    create: {
+      tenantId: tenant.id,
+      fontPrimary: "Sora",
+      fontSecondary: "IBM Plex Sans",
+      buttonRadius: "0.85rem",
+      settings: {
+        tone: "premium-clean",
+      },
+    },
+  });
+
+  await prisma.siteNavigation.upsert({
+    where: {
+      tenantId_locale: {
+        tenantId: tenant.id,
+        locale: "es",
+      },
+    },
+    update: {
+      draftItems: [
+        { label: "Masterplan", href: "/availability" },
+        { label: "Tipologias", href: "/typologies/aurora-2br" },
+        { label: "Amenities", href: "/amenities/sky-lounge" },
+      ],
+      publishedItems: [
+        { label: "Masterplan", href: "/availability" },
+        { label: "Tipologias", href: "/typologies/aurora-2br" },
+        { label: "Amenities", href: "/amenities/sky-lounge" },
+      ],
+    },
+    create: {
+      tenantId: tenant.id,
+      locale: "es",
+      draftItems: [
+        { label: "Masterplan", href: "/availability" },
+        { label: "Tipologias", href: "/typologies/aurora-2br" },
+        { label: "Amenities", href: "/amenities/sky-lounge" },
+      ],
+      publishedItems: [
+        { label: "Masterplan", href: "/availability" },
+        { label: "Tipologias", href: "/typologies/aurora-2br" },
+        { label: "Amenities", href: "/amenities/sky-lounge" },
+      ],
+    },
+  });
+
+  const homePage = await prisma.page.create({
+    data: {
+      tenantId: tenant.id,
+      slug: "home",
+      kind: "HOME",
+      title: "Articimento Premium",
+      description: "Proyecto residencial premium con masterplan interactivo.",
+    },
+  });
+
+  const homeVersion = await prisma.pageVersion.create({
+    data: {
+      tenantId: tenant.id,
+      pageId: homePage.id,
+      versionNumber: 1,
+      status: "PUBLISHED",
+      createdById: adminUser.id,
+      publishedAt: new Date(),
+      sections: [
+        {
+          id: "hero-home",
+          type: "hero",
+          props: {
+            title: "Condo Sales OS para proyectos premium",
+            subtitle: "Controla ventas, comisiones, condo fees y experiencia digital del cliente.",
+            ctaLabel: "Abrir Masterplan",
+            ctaHref: "/availability",
+          },
+        },
+        {
+          id: "cards-home",
+          type: "cards",
+          props: {
+            items: [
+              { title: "Inventario vivo", body: "Unidades por estado, piso, metraje y vista." },
+              { title: "Ventas + Ledger", body: "Pago registrado = entries automaticos 2% + comision." },
+              { title: "Documentos privados", body: "Contratos y vouchers solo por signed URL." },
+            ],
+          },
+        },
+      ],
+      seoTitle: "Articimento Premium | Home",
+      seoDescription: "Experiencia digital de ventas con multi-tenant y root platform.",
+    },
+  });
+
+  await prisma.page.update({
+    where: { id: homePage.id },
+    data: {
+      currentDraftVersionId: homeVersion.id,
+      publishedVersionId: homeVersion.id,
+    },
+  });
+
+  const availabilityPage = await prisma.page.create({
+    data: {
+      tenantId: tenant.id,
+      slug: "availability",
+      kind: "AVAILABILITY",
+      title: "Availability",
+      description: "Masterplan interactivo con filtros comerciales.",
+    },
+  });
+
+  const availabilityVersion = await prisma.pageVersion.create({
+    data: {
+      tenantId: tenant.id,
+      pageId: availabilityPage.id,
+      versionNumber: 1,
+      status: "PUBLISHED",
+      createdById: adminUser.id,
+      publishedAt: new Date(),
+      sections: [
+        {
+          id: "masterplan-main",
+          type: "masterplan",
+          props: {
+            title: "Masterplan Articimento",
+          },
+        },
+      ],
+      seoTitle: "Availability Masterplan",
+      seoDescription: "Mapa de unidades con estados y unit drawer interactivo.",
+    },
+  });
+
+  await prisma.page.update({
+    where: { id: availabilityPage.id },
+    data: {
+      currentDraftVersionId: availabilityVersion.id,
+      publishedVersionId: availabilityVersion.id,
+    },
+  });
+
+  await prisma.translation.createMany({
+    data: [
+      {
+        tenantId: tenant.id,
+        entityType: "Page",
+        entityId: homePage.id,
+        field: "title",
+        locale: "en",
+        value: "Articimento Premium",
+      },
+      {
+        tenantId: tenant.id,
+        entityType: "Page",
+        entityId: homePage.id,
+        field: "description",
+        locale: "en",
+        value: "Premium residential project with interactive sales journey.",
+      },
+      {
+        tenantId: tenant.id,
+        entityType: "Page",
+        entityId: availabilityPage.id,
+        field: "title",
+        locale: "en",
+        value: "Availability",
+      },
+      {
+        tenantId: tenant.id,
+        entityType: "Page",
+        entityId: availabilityPage.id,
+        field: "description",
+        locale: "en",
+        value: "Interactive masterplan with real-time inventory filters.",
+      },
+    ],
+  });
+
   await prisma.auditLog.createMany({
     data: [
       {
@@ -471,6 +680,7 @@ async function main() {
   });
 
   console.log("Seed completed:");
+  console.log(`Platform tenant: ${platformTenant.name} (${platformTenant.id})`);
   console.log(`Tenant: ${tenant.name} (${tenant.id})`);
   console.log("Users:");
   console.log(" - root@articimento.local / root123");

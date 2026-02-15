@@ -78,7 +78,7 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
     reservationTtlHours: "48",
   });
   const [domainHost, setDomainHost] = useState("");
-  const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "ADMIN" });
+  const [userForm, setUserForm] = useState({ email: "", role: "ADMIN" });
   const [ruleForm, setRuleForm] = useState({ role: "SELLER", percentage: "3" });
   const [productForm, setProductForm] = useState({ name: "", description: "", areaM2: "", basePrice: "", imageUrls: "", videoUrls: "", planUrls: "" });
 
@@ -130,11 +130,19 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
   useEffect(() => {
     void (async () => {
       try {
-        const data = await request<{ tenants: Tenant[] }>("/api/root/tenants");
-        setTenants(data.tenants);
-        if (data.tenants[0]) {
-          setTenantId(data.tenants[0].id);
-          await loadTenantData(data.tenants[0].id);
+        const target = await request<{
+          targetTenantId: string;
+          tenants: Array<{ id: string; name: string; slug: string }>;
+        }>("/api/root/target-tenant");
+        const tenantData = await request<{ tenants: Tenant[] }>("/api/root/tenants");
+        setTenants(
+          tenantData.tenants.filter((item) =>
+            target.tenants.some((candidate) => candidate.id === item.id),
+          ),
+        );
+        if (target.targetTenantId) {
+          setTenantId(target.targetTenantId);
+          await loadTenantData(target.targetTenantId);
         }
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Error cargando tenants");
@@ -145,6 +153,11 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
   async function handleTenantChange(nextTenantId: string) {
     setTenantId(nextTenantId);
     try {
+      await request("/api/root/target-tenant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId: nextTenantId }),
+      });
       await loadTenantData(nextTenantId);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Error cargando panel");
@@ -187,9 +200,17 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
   }
 
   async function createUser() {
-    await request("/api/root/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...userForm, tenantId }) });
-    setUserForm({ name: "", email: "", password: "", role: "ADMIN" });
-    setStatus("Usuario creado.");
+    const invite = await request<{ token: string; expiresAt: string }>("/api/root/invites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: userForm.email,
+        role: userForm.role,
+        expiresHours: 48,
+      }),
+    });
+    setUserForm({ email: "", role: "ADMIN" });
+    setStatus(`Invitacion creada. Token: ${invite.token}`);
     await loadTenantData(tenantId);
   }
 
@@ -258,12 +279,10 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
         </div> : null}
 
         {section === "users" ? <div className="grid gap-4 lg:grid-cols-2">
-          <Card><CardHeader><CardTitle>Crear admin/seller</CardTitle></CardHeader><CardContent className="grid gap-2">
-            <Input placeholder="Nombre" value={userForm.name} onChange={(e) => setUserForm((p) => ({ ...p, name: e.target.value }))} />
+          <Card><CardHeader><CardTitle>Invitar admin/seller</CardTitle></CardHeader><CardContent className="grid gap-2">
             <Input placeholder="Email" value={userForm.email} onChange={(e) => setUserForm((p) => ({ ...p, email: e.target.value }))} />
-            <Input placeholder="Password temporal" type="password" value={userForm.password} onChange={(e) => setUserForm((p) => ({ ...p, password: e.target.value }))} />
-            <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={userForm.role} onChange={(e) => setUserForm((p) => ({ ...p, role: e.target.value }))}><option value="ADMIN">ADMIN</option><option value="SELLER">SELLER</option><option value="CLIENT">CLIENT</option></select>
-            <Button onClick={() => void createUser()}>Crear usuario</Button>
+            <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={userForm.role} onChange={(e) => setUserForm((p) => ({ ...p, role: e.target.value }))}><option value="ADMIN">ADMIN</option><option value="SELLER">SELLER</option></select>
+            <Button onClick={() => void createUser()}>Generar invitacion</Button>
           </CardContent></Card>
           <Card><CardHeader><CardTitle>Usuarios del tenant</CardTitle></CardHeader><CardContent className="space-y-2">{users.map((item) => <div key={item.membershipId} className="rounded-md border p-2"><div className="flex items-center justify-between"><p>{item.user.name ?? "Sin nombre"}</p><Badge variant={item.role === "ADMIN" ? "warning" : item.role === "SELLER" ? "success" : "secondary"}>{item.role}</Badge></div><p className="text-sm text-slate-600">{item.user.email}</p></div>)}</CardContent></Card>
         </div> : null}

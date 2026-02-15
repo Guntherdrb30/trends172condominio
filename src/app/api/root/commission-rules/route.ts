@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { Role } from "@prisma/client";
 import { z } from "zod";
 
 import { requireRole } from "@/server/auth/guards";
 import { prisma } from "@/server/db";
 import { writeAuditLog } from "@/server/dal/audit-log";
 import { createDalContext } from "@/server/dal/context";
+import { resolveScopedTenantId } from "@/server/root/target-tenant";
 import { getTenantContext } from "@/server/tenant/context";
 
 const querySchema = z.object({
@@ -19,14 +19,6 @@ const createRuleSchema = z.object({
   active: z.boolean().optional(),
 });
 
-function resolveTenantId(ctx: { tenantId: string; role?: Role }, tenantId?: string) {
-  if (!tenantId) return ctx.tenantId;
-  if (ctx.role !== "ROOT" && tenantId !== ctx.tenantId) {
-    throw new Error("Cross-tenant commission management denied.");
-  }
-  return tenantId;
-}
-
 export async function GET(request: Request) {
   try {
     const ctx = await getTenantContext();
@@ -35,7 +27,12 @@ export async function GET(request: Request) {
     const { tenantId } = querySchema.parse({
       tenantId: url.searchParams.get("tenantId") ?? undefined,
     });
-    const targetTenantId = resolveTenantId(ctx, tenantId);
+    const scoped = await resolveScopedTenantId({
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
+    const targetTenantId = tenantId && ctx.role !== "ROOT" ? tenantId : scoped.targetTenantId;
 
     const rules = await prisma.commissionRule.findMany({
       where: {
@@ -56,7 +53,13 @@ export async function POST(request: Request) {
     const ctx = await getTenantContext();
     requireRole(ctx, ["ROOT"]);
     const payload = createRuleSchema.parse(await request.json());
-    const targetTenantId = resolveTenantId(ctx, payload.tenantId);
+    const scoped = await resolveScopedTenantId({
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
+    const targetTenantId =
+      payload.tenantId && ctx.role !== "ROOT" ? payload.tenantId : scoped.targetTenantId;
 
     const rule = await prisma.commissionRule.create({
       data: {
@@ -84,4 +87,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-

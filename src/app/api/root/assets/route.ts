@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { Role } from "@prisma/client";
 import { z } from "zod";
 
 import { requireRole } from "@/server/auth/guards";
 import { prisma } from "@/server/db";
+import { resolveScopedTenantId } from "@/server/root/target-tenant";
 import { getTenantContext } from "@/server/tenant/context";
 
 const querySchema = z.object({
@@ -13,14 +13,6 @@ const querySchema = z.object({
     .optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
-
-function resolveTenantId(ctx: { tenantId: string; role?: Role }, tenantId?: string) {
-  if (!tenantId) return ctx.tenantId;
-  if (ctx.role !== "ROOT" && tenantId !== ctx.tenantId) {
-    throw new Error("Cross-tenant asset access denied.");
-  }
-  return tenantId;
-}
 
 export async function GET(request: Request) {
   try {
@@ -32,7 +24,13 @@ export async function GET(request: Request) {
       type: url.searchParams.get("type") ?? undefined,
       limit: url.searchParams.get("limit") ?? undefined,
     });
-    const targetTenantId = resolveTenantId(ctx, payload.tenantId);
+    const scoped = await resolveScopedTenantId({
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
+    const targetTenantId =
+      payload.tenantId && ctx.role !== "ROOT" ? payload.tenantId : scoped.targetTenantId;
 
     const assets = await prisma.asset.findMany({
       where: {
@@ -51,4 +49,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-

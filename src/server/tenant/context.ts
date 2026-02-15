@@ -32,12 +32,11 @@ function rolePriority(role: Role) {
 
 export async function getTenantContext(): Promise<TenantContext | null> {
   const headerStore = await headers();
-  const host = normalizeHost(headerStore.get("x-tenant-host") ?? headerStore.get("host"));
-  if (!host) return null;
+  const host = normalizeHost(headerStore.get("x-tenant-host") ?? headerStore.get("host")) ?? "unknown-host";
 
   const domain = await prisma.domain.findFirst({
     where: {
-      host,
+      OR: [{ host }, { normalizedHost: host }],
     },
     include: {
       tenant: {
@@ -54,7 +53,7 @@ export async function getTenantContext(): Promise<TenantContext | null> {
     (host.includes("localhost")
       ? await prisma.domain.findFirst({
           where: {
-            host: "localhost",
+            OR: [{ host: "localhost" }, { normalizedHost: "localhost" }],
           },
           include: {
             tenant: {
@@ -70,33 +69,59 @@ export async function getTenantContext(): Promise<TenantContext | null> {
             where: {
               isPrimary: true,
             },
-          include: {
-            tenant: {
-              select: {
-                id: true,
-                slug: true,
+            include: {
+              tenant: {
+                select: {
+                  id: true,
+                  slug: true,
+                },
               },
             },
-          },
-          orderBy: {
-            createdAt: "asc",
+            orderBy: {
+              createdAt: "asc",
             },
           })
         : null);
 
-  if (!fallbackDomain?.tenant) {
-    return null;
-  }
-
   const session = await getAuthSession();
   const userId = session?.user?.id;
   let role: Role | undefined = session?.user?.role;
+  let tenantId = fallbackDomain?.tenantId;
+  let tenantSlug = fallbackDomain?.tenant?.slug;
+
+  if (userId && role === "ROOT") {
+    const platformRootMembership = await prisma.membership.findFirst({
+      where: {
+        userId,
+        role: "ROOT",
+        tenant: {
+          OR: [{ type: "PLATFORM" }, { isPlatform: true }],
+        },
+      },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            slug: true,
+          },
+        },
+      },
+    });
+    if (platformRootMembership?.tenant) {
+      tenantId = platformRootMembership.tenant.id;
+      tenantSlug = platformRootMembership.tenant.slug;
+    }
+  }
+
+  if (!tenantId || !tenantSlug) {
+    return null;
+  }
 
   if (userId && !role) {
     const memberships = await prisma.membership.findMany({
       where: {
         userId,
-        tenantId: fallbackDomain.tenantId,
+        tenantId,
       },
       orderBy: {
         createdAt: "asc",
@@ -108,8 +133,8 @@ export async function getTenantContext(): Promise<TenantContext | null> {
   const privileged = Boolean(await readPrivilegedCookie());
 
   return {
-    tenantId: fallbackDomain.tenantId,
-    tenantSlug: fallbackDomain.tenant.slug,
+    tenantId,
+    tenantSlug,
     host,
     userId: userId ?? undefined,
     role,

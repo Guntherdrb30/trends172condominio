@@ -2,18 +2,29 @@ import Link from "next/link";
 
 import { PageEvent } from "@/components/analytics/page-event";
 import { GlassHeader } from "@/components/public/glass-header";
+import { DynamicRenderer } from "@/components/site/dynamic-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { demoAmenities, demoTenant, demoTypologies } from "@/lib/demo-data";
 import { getDictionary } from "@/lib/i18n";
+import { getPublishedPage } from "@/server/services/site-builder.service";
+import { getTenantContext } from "@/server/tenant/context";
 import { getTenantLanguage } from "@/server/tenant/language";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  const tenantCtx = await getTenantContext();
   const language = await getTenantLanguage();
   const t = getDictionary(language);
+  const publishedHome = tenantCtx?.tenantId
+    ? await getPublishedPage({
+        tenantId: tenantCtx.tenantId,
+        slug: "home",
+        locale: language.toLowerCase(),
+      })
+    : null;
 
   const faqSchema = {
     "@context": "https://schema.org",
@@ -44,7 +55,15 @@ export default async function Home() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <GlassHeader language={language} />
       <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
-        <section className="grid gap-8 py-16 lg:grid-cols-[1.15fr_0.85fr]">
+        {publishedHome?.version?.sections ? (
+          <section className="py-10">
+            <DynamicRenderer sections={publishedHome.version.sections} />
+          </section>
+        ) : null}
+
+        {!publishedHome ? (
+          <>
+            <section className="grid gap-8 py-16 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-5">
             <Badge variant="secondary">{t.homeBadge}</Badge>
             <h1 className="text-4xl font-semibold tracking-tight text-slate-900 md:text-6xl">
@@ -74,7 +93,7 @@ export default async function Home() {
             </CardContent>
           </Card>
         </section>
-        <section className="grid gap-4 md:grid-cols-2">
+            <section className="grid gap-4 md:grid-cols-2">
           {demoTypologies.map((typology) => (
             <Card key={typology.id}>
               <CardHeader>
@@ -92,7 +111,7 @@ export default async function Home() {
           ))}
         </section>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2">
+            <section className="mt-8 grid gap-4 md:grid-cols-2">
           {demoAmenities.map((amenity) => (
             <Card key={amenity.slug}>
               <CardHeader>
@@ -107,6 +126,8 @@ export default async function Home() {
             </Card>
           ))}
         </section>
+          </>
+        ) : null}
       </main>
     </div>
   );

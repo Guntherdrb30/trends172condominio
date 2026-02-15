@@ -100,10 +100,43 @@ enum AppLanguage {
   PT
 }
 
+enum TenantType {
+  PLATFORM
+  CUSTOMER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELED
+}
+
+enum PageKind {
+  HOME
+  AVAILABILITY
+  TYPOLOGY
+  AMENITY
+  CUSTOM
+}
+
+enum PageVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 model Tenant {
   id                          String            @id @default(cuid())
   name                        String
   slug                        String            @unique
+  type                        TenantType?
+  isPlatform                  Boolean?
+  selfSignupEnabled           Boolean?          @default(true)
+  supportedLocales            String[]          @default(["es", "en"])
+  headerVideoAssetId          String?
+  headerVideoUrl              String?
+  featureFlags                Json?
   defaultLanguage             AppLanguage       @default(ES)
   logoUrl                     String?
   primaryColor                String?           @default("#0f172a")
@@ -155,18 +188,27 @@ model Tenant {
   payrollRuns                 PayrollRun[]
   payrollPayments             PayrollPayment[]
   aiChatLogs                  AiChatLog[]
+  inviteTokens                InviteToken[]
+  pages                       Page[]
+  pageVersions                PageVersion[]
+  siteNavigations             SiteNavigation[]
+  themeSettings               ThemeSettings?
+  translations                Translation[]
 }
 
 model Domain {
-  id        String   @id @default(cuid())
-  host      String   @unique
-  isPrimary Boolean  @default(false)
-  tenantId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                String   @id @default(cuid())
+  host              String   @unique
+  normalizedHost    String?  @unique
+  isPrimary         Boolean  @default(false)
+  allowClientSignup Boolean? @default(true)
+  tenantId          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([normalizedHost])
 }
 
 model User {
@@ -174,37 +216,49 @@ model User {
   email         String       @unique
   name          String?
   passwordHash  String?
+  locale        AppLanguage? @default(ES)
   emailVerified DateTime?
   image         String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  memberships   Membership[]
-  auditLogs     AuditLog[]
-  analytics     AnalyticsEvent[]
-  leadLinks     Lead[]       @relation("LeadUser")
-  appointments  Appointment[] @relation("AppointmentUser")
-  reservations  Reservation[]
-  buyerSales    Sale[]       @relation("SaleBuyer")
-  sellerSales   Sale[]       @relation("SaleSeller")
+  memberships       Membership[]
+  invitedMemberships Membership[] @relation("MembershipInvitedBy")
+  inviteTokensSent  InviteToken[] @relation("InviteTokenCreatedBy")
+  inviteTokensUsed  InviteToken[] @relation("InviteTokenAcceptedBy")
+  pageVersions      PageVersion[] @relation("PageVersionCreatedBy")
+  auditLogs         AuditLog[]
+  analytics         AnalyticsEvent[]
+  leadLinks         Lead[]       @relation("LeadUser")
+  appointments      Appointment[] @relation("AppointmentUser")
+  reservations      Reservation[]
+  buyerSales        Sale[]       @relation("SaleBuyer")
+  sellerSales       Sale[]       @relation("SaleSeller")
   commissionEntries CommissionEntry[] @relation("CommissionSeller")
-  payments      Payment[]    @relation("PaymentRegisteredBy")
-  assets        Asset[]      @relation("AssetUploader")
-  employees     Employee[]
-  aiChatLogs    AiChatLog[]
+  payments          Payment[]    @relation("PaymentRegisteredBy")
+  assets            Asset[]      @relation("AssetUploader")
+  employees         Employee[]
+  aiChatLogs        AiChatLog[]
 }
 
 model Membership {
-  id        String   @id @default(cuid())
-  userId    String
-  tenantId  String
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  userId       String
+  tenantId     String
+  role         Role
+  inviteTokenId String?
+  invitedById  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy    User?    @relation("MembershipInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  inviteToken  InviteToken? @relation(fields: [inviteTokenId], references: [id], onDelete: SetNull)
 
   @@unique([userId, tenantId])
+  @@unique([inviteTokenId])
   @@index([tenantId, role])
+  @@index([tenantId, isActive, role])
 }
 
 model AuditLog {
@@ -776,6 +830,9 @@ model Asset {
   typologyId       String?
   amenityInstanceId String?
   unitId           String?
+  pageId           String?
+  pageVersionId    String?
+  blockId          String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -786,8 +843,125 @@ model Asset {
   typology         Typology?       @relation(fields: [typologyId], references: [id], onDelete: SetNull)
   amenityInstance  AmenityInstance? @relation(fields: [amenityInstanceId], references: [id], onDelete: SetNull)
   unit             Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  page             Page?           @relation(fields: [pageId], references: [id], onDelete: SetNull)
+  pageVersion      PageVersion?    @relation(fields: [pageVersionId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, type, createdAt])
+  @@index([tenantId, pageId, pageVersionId])
+}
+
+model InviteToken {
+  id           String       @id @default(cuid())
+  tenantId     String
+  email        String
+  role         Role
+  tokenHash    String       @unique
+  status       InviteStatus @default(PENDING)
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  createdById  String?
+  acceptedById String?
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("InviteTokenCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  acceptedBy   User?        @relation("InviteTokenAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
+  membership   Membership?
+
+  @@index([tenantId, status, expiresAt])
+  @@index([tenantId, email])
+}
+
+model ThemeSettings {
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique
+  fontPrimary        String?
+  fontSecondary      String?
+  headerVideoAssetId String?
+  headerImageAssetId String?
+  buttonRadius       String?
+  settings           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model SiteNavigation {
+  id             String   @id @default(cuid())
+  tenantId       String
+  locale         String   @default("es")
+  draftItems     Json?
+  publishedItems Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, locale])
+  @@index([tenantId, locale])
+}
+
+model Page {
+  id                   String        @id @default(cuid())
+  tenantId             String
+  slug                 String
+  kind                 PageKind?
+  title                String?
+  description          String?
+  isSystem             Boolean       @default(false)
+  currentDraftVersionId String?
+  publishedVersionId   String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currentDraftVersion  PageVersion?  @relation("PageCurrentDraft", fields: [currentDraftVersionId], references: [id], onDelete: SetNull)
+  publishedVersion     PageVersion?  @relation("PagePublishedVersion", fields: [publishedVersionId], references: [id], onDelete: SetNull)
+  versions             PageVersion[]
+  assets               Asset[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, kind])
+}
+
+model PageVersion {
+  id             String            @id @default(cuid())
+  tenantId       String
+  pageId         String
+  versionNumber  Int
+  status         PageVersionStatus @default(DRAFT)
+  sections       Json?
+  seoTitle       String?
+  seoDescription String?
+  createdById    String?
+  publishedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  page           Page              @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdBy      User?             @relation("PageVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assets         Asset[]
+  currentForPages Page[]           @relation("PageCurrentDraft")
+  publishedForPages Page[]         @relation("PagePublishedVersion")
+
+  @@unique([pageId, versionNumber])
+  @@index([tenantId, pageId, status])
+}
+
+model Translation {
+  id         String   @id @default(cuid())
+  tenantId   String
+  entityType String
+  entityId   String
+  field      String
+  locale     String
+  value      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, entityType, entityId, field, locale])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, locale])
 }
 
 model Employee {

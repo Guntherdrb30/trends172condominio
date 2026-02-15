@@ -6,10 +6,8 @@ export const dynamic = "force-dynamic";
 export default async function RootConfiguratorPage() {
   await requirePageAccess(["ROOT"], "/app/root/configurator");
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
-      <div className="mx-auto max-w-7xl">
-        <RootCommandCenter initialSection="site" />
-      </div>
+    <div className="mx-auto max-w-6xl">
+      <RootCommandCenter initialSection="site" />
     </div>
   );
 }

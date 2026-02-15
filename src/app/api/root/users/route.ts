@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Role } from "@prisma/client";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 
@@ -7,6 +6,7 @@ import { requireRole } from "@/server/auth/guards";
 import { prisma } from "@/server/db";
 import { writeAuditLog } from "@/server/dal/audit-log";
 import { createDalContext } from "@/server/dal/context";
+import { resolveScopedTenantId } from "@/server/root/target-tenant";
 import { getTenantContext } from "@/server/tenant/context";
 
 const querySchema = z.object({
@@ -21,14 +21,6 @@ const createUserSchema = z.object({
   role: z.enum(["ADMIN", "SELLER", "CLIENT"]),
 });
 
-function resolveTenantId(ctx: { tenantId: string; role?: Role }, tenantId?: string) {
-  if (!tenantId) return ctx.tenantId;
-  if (ctx.role !== "ROOT" && tenantId !== ctx.tenantId) {
-    throw new Error("Cross-tenant user management denied.");
-  }
-  return tenantId;
-}
-
 export async function GET(request: Request) {
   try {
     const ctx = await getTenantContext();
@@ -37,7 +29,12 @@ export async function GET(request: Request) {
     const { tenantId } = querySchema.parse({
       tenantId: url.searchParams.get("tenantId") ?? undefined,
     });
-    const targetTenantId = resolveTenantId(ctx, tenantId);
+    const scoped = await resolveScopedTenantId({
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
+    const targetTenantId = tenantId && ctx.role !== "ROOT" ? tenantId : scoped.targetTenantId;
 
     const memberships = await prisma.membership.findMany({
       where: {
@@ -75,7 +72,19 @@ export async function POST(request: Request) {
     const ctx = await getTenantContext();
     requireRole(ctx, ["ROOT"]);
     const payload = createUserSchema.parse(await request.json());
-    const targetTenantId = resolveTenantId(ctx, payload.tenantId);
+    if (payload.role === "ADMIN" || payload.role === "SELLER") {
+      return NextResponse.json(
+        { error: "Admin/Seller creation is invite-only. Use /api/root/invites." },
+        { status: 400 },
+      );
+    }
+    const scoped = await resolveScopedTenantId({
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+    });
+    const targetTenantId =
+      payload.tenantId && ctx.role !== "ROOT" ? payload.tenantId : scoped.targetTenantId;
 
     const existing = await prisma.user.findUnique({
       where: {
@@ -138,4 +147,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-
