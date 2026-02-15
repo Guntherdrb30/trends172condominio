@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -269,7 +270,17 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
       </aside>
 
       <section className="space-y-4">
-        <Card><CardHeader><CardTitle>{sections.find((item) => item.id === section)?.label}</CardTitle></CardHeader><CardContent>{status || `Tenant activo: ${tenant?.name ?? "-"}`}</CardContent></Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{sections.find((item) => item.id === section)?.label}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-2">
+            <p>{status || `Tenant activo: ${tenant?.name ?? "-"}`}</p>
+            <Button asChild size="sm">
+              <Link href="/app/root/projects/new">Crear nuevo proyecto</Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         {section === "overview" ? <div className="grid gap-4 md:grid-cols-4">
           <Card><CardHeader><CardTitle>Ventas cerradas</CardTitle></CardHeader><CardContent>{summary.sales.closed} | {money(summary.sales.closedVolume)}</CardContent></Card>
