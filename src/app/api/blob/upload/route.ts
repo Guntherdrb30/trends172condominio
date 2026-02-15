@@ -55,7 +55,11 @@ export async function POST(request: Request) {
       ok: true,
       assetId: asset.id,
       blobPath: asset.blobPath,
+      blobUrl: asset.blobUrl,
       hasBlobUpload: Boolean(blobUrl),
+      warning: blobUrl
+        ? undefined
+        : "Archivo registrado sin subir a Blob. Configura BLOB_READ_WRITE_TOKEN para obtener URL publica.",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Upload failed";

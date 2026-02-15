@@ -20,6 +20,7 @@ export async function GET() {
       ok: true,
       settings,
       candidates,
+      uploadEnabled: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load marketplace settings";

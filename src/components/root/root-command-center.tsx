@@ -247,8 +247,15 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
     const form = new FormData();
     form.append("file", file);
     form.append("meta", JSON.stringify({ type: "TOUR_MEDIA" }));
-    await request<{ assetId: string }>("/api/blob/upload", { method: "POST", body: form });
-    setStatus("Video subido en biblioteca privada.");
+    const upload = await request<{ assetId: string; hasBlobUpload: boolean; warning?: string }>(
+      "/api/blob/upload",
+      { method: "POST", body: form },
+    );
+    setStatus(
+      upload.hasBlobUpload
+        ? "Video subido en biblioteca privada."
+        : upload.warning ?? "Archivo registrado, pero Blob no esta configurado.",
+    );
     await loadTenantData(tenantId);
   }
 

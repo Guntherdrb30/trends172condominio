@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,8 @@ function money(value: number | null) {
 export function RootMarketplaceConsole() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploadingId, setUploadingId] = useState("");
+  const [uploadEnabled, setUploadEnabled] = useState(true);
   const [search, setSearch] = useState("");
   const [amenitySearch, setAmenitySearch] = useState("");
 
@@ -88,25 +90,31 @@ export function RootMarketplaceConsole() {
     );
   }, [amenitySearch, candidates.amenities]);
 
+  const loadMarketplaceConfig = useCallback(async () => {
+    const response = await fetch("/api/root/marketplace/settings");
+    const data = (await response.json()) as {
+      error?: string;
+      settings?: SettingsPayload;
+      candidates?: { typologies: CandidateTypology[]; amenities: CandidateAmenity[] };
+      uploadEnabled?: boolean;
+    };
+    if (!response.ok || !data.settings || !data.candidates) {
+      throw new Error(data.error ?? "No se pudo cargar configuracion");
+    }
+    setSettings(data.settings);
+    setCandidates(data.candidates);
+    setUploadEnabled(data.uploadEnabled ?? false);
+  }, []);
+
   useEffect(() => {
     void (async () => {
       try {
-        const response = await fetch("/api/root/marketplace/settings");
-        const data = (await response.json()) as {
-          error?: string;
-          settings?: SettingsPayload;
-          candidates?: { typologies: CandidateTypology[]; amenities: CandidateAmenity[] };
-        };
-        if (!response.ok || !data.settings || !data.candidates) {
-          throw new Error(data.error ?? "No se pudo cargar configuracion");
-        }
-        setSettings(data.settings);
-        setCandidates(data.candidates);
+        await loadMarketplaceConfig();
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Error cargando marketplace");
       }
     })();
-  }, []);
+  }, [loadMarketplaceConfig]);
 
   function toggleHero(typologyId: string) {
     setSettings((prev) => {
@@ -189,6 +197,46 @@ export function RootMarketplaceConsole() {
     }
   }
 
+  async function uploadImage(
+    entityType: "TYPOLOGY" | "AMENITY",
+    entityId: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setUploadingId(entityId);
+    setStatus("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append(
+        "meta",
+        JSON.stringify({
+          entityType,
+          entityId,
+        }),
+      );
+
+      const response = await fetch("/api/root/marketplace/media", {
+        method: "POST",
+        body: form,
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? "No se pudo subir imagen");
+      }
+
+      await loadMarketplaceConfig();
+      setStatus("Imagen subida y aplicada al marketplace.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Error subiendo imagen");
+    } finally {
+      setUploadingId("");
+    }
+  }
+
   const heroSelectedRows = settings.heroTypologyIds
     .map((id) => candidates.typologies.find((row) => row.id === id))
     .filter((row): row is CandidateTypology => Boolean(row));
@@ -225,6 +273,14 @@ export function RootMarketplaceConsole() {
         </CardContent>
       </Card>
 
+      {!uploadEnabled ? (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="py-3 text-sm text-amber-900">
+            Para subir imagenes debes configurar `BLOB_READ_WRITE_TOKEN` en Vercel y redeployar.
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -238,6 +294,16 @@ export function RootMarketplaceConsole() {
                 const sponsored = sponsoredSet.has(item.id);
                 return (
                   <div key={item.id} className="rounded-md border border-slate-200 p-2">
+                    <div className="mb-2">
+                      {item.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.imageUrl} alt={item.name} className="h-28 w-full rounded-md object-cover" />
+                      ) : (
+                        <div className="h-28 w-full rounded-md bg-slate-100 p-2 text-xs text-slate-500">
+                          Sin imagen
+                        </div>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-medium">
                         {item.name} <span className="text-slate-500">- {item.tenantName}</span>
@@ -259,6 +325,15 @@ export function RootMarketplaceConsole() {
                     <p className="mt-1 text-xs text-slate-600">
                       {item.areaM2 ? `${item.areaM2} m2` : "-"} | {money(item.basePrice)}
                     </p>
+                    <div className="mt-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingId === item.id}
+                        onChange={(event) => void uploadImage("TYPOLOGY", item.id, event)}
+                        className="w-full text-xs"
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -310,9 +385,26 @@ export function RootMarketplaceConsole() {
               const selected = amenitySet.has(item.id);
               return (
                 <div key={item.id} className="flex items-center justify-between rounded-md border border-slate-200 p-2">
-                  <p className="text-sm">
-                    {item.title} <span className="text-slate-500">- {item.tenantName}</span>
-                  </p>
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="h-12 w-16 shrink-0 overflow-hidden rounded-md bg-slate-100">
+                      {item.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm">
+                        {item.title} <span className="text-slate-500">- {item.tenantName}</span>
+                      </p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingId === item.id}
+                        onChange={(event) => void uploadImage("AMENITY", item.id, event)}
+                        className="mt-1 w-full text-xs"
+                      />
+                    </div>
+                  </div>
                   <Button size="sm" variant={selected ? "default" : "outline"} onClick={() => toggleAmenity(item.id)}>
                     {selected ? "Destacada" : "Agregar"}
                   </Button>
