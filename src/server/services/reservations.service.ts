@@ -19,6 +19,11 @@ export type CreateReservationInput = z.input<typeof createReservationSchema>;
 export async function createReservation(ctx: DalContext, input: CreateReservationInput) {
   assertTenantContext(ctx);
   const payload = createReservationSchema.parse(input);
+  const reservationUserId = payload.userId ?? ctx.userId;
+
+  if (ctx.role === "CLIENT" && reservationUserId !== ctx.userId) {
+    throw new Error("Clients can only create reservations for themselves.");
+  }
 
   const tenant = await prisma.tenant.findUniqueOrThrow({
     where: { id: ctx.tenantId },
@@ -29,6 +34,19 @@ export async function createReservation(ctx: DalContext, input: CreateReservatio
   const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
 
   return prisma.$transaction(async (tx) => {
+    if (payload.leadId) {
+      const lead = await tx.lead.findFirst({
+        where: {
+          id: payload.leadId,
+          tenantId: ctx.tenantId,
+        },
+        select: { id: true },
+      });
+      if (!lead) {
+        throw new Error("Lead not found for tenant.");
+      }
+    }
+
     const unit = await tx.unit.findFirst({
       where: {
         id: payload.unitId,
@@ -45,7 +63,7 @@ export async function createReservation(ctx: DalContext, input: CreateReservatio
         tenantId: ctx.tenantId,
         unitId: payload.unitId,
         leadId: payload.leadId,
-        userId: payload.userId ?? ctx.userId,
+        userId: reservationUserId,
         notes: payload.notes,
         expiresAt,
       },

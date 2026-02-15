@@ -44,6 +44,64 @@ export async function createSale(ctx: DalContext, input: CreateSaleInput) {
       throw new Error("Unit not found for tenant.");
     }
 
+    if (payload.leadId) {
+      const lead = await tx.lead.findFirst({
+        where: {
+          id: payload.leadId,
+          tenantId: ctx.tenantId,
+        },
+        select: { id: true },
+      });
+      if (!lead) {
+        throw new Error("Lead not found for tenant.");
+      }
+    }
+
+    if (payload.reservationId) {
+      const reservation = await tx.reservation.findFirst({
+        where: {
+          id: payload.reservationId,
+          tenantId: ctx.tenantId,
+          unitId: payload.unitId,
+        },
+        select: { id: true },
+      });
+      if (!reservation) {
+        throw new Error("Reservation not found for tenant and unit.");
+      }
+    }
+
+    if (payload.buyerId) {
+      const buyerMembership = await tx.membership.findFirst({
+        where: {
+          userId: payload.buyerId,
+          tenantId: ctx.tenantId,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      if (!buyerMembership) {
+        throw new Error("Buyer does not belong to tenant.");
+      }
+    }
+
+    if (payload.sellerId) {
+      const sellerMembership = await tx.membership.findFirst({
+        where: {
+          userId: payload.sellerId,
+          tenantId: ctx.tenantId,
+          isActive: true,
+          role: {
+            in: ["SELLER", "ADMIN", "ROOT"],
+          },
+        },
+        select: { id: true },
+      });
+      if (!sellerMembership) {
+        throw new Error("Seller does not belong to tenant.");
+      }
+    }
+
     const created = await tx.sale.create({
       data: {
         tenantId: ctx.tenantId,
@@ -122,6 +180,18 @@ export async function closeSale(ctx: DalContext, input: z.input<typeof closeSale
 export async function attachSaleDocs(ctx: DalContext, input: z.input<typeof attachSaleDocsSchema>) {
   assertTenantContext(ctx);
   const payload = attachSaleDocsSchema.parse(input);
+  const sale = await prisma.sale.findFirst({
+    where: {
+      id: payload.saleId,
+      tenantId: ctx.tenantId,
+    },
+    select: {
+      id: true,
+    },
+  });
+  if (!sale) {
+    throw new Error("Sale not found for tenant.");
+  }
 
   const result = await prisma.asset.updateMany({
     where: {
@@ -147,4 +217,3 @@ export async function attachSaleDocs(ctx: DalContext, input: z.input<typeof atta
 
   return result;
 }
-

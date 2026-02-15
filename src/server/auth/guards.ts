@@ -38,6 +38,7 @@ export async function requireTenantMembership(
     where: {
       tenantId: ctx.tenantId,
       userId: ctx.userId,
+      isActive: true,
     },
   });
 
@@ -64,6 +65,7 @@ export async function requirePlatformRoot(
     where: {
       userId: ctx.userId,
       role: "ROOT",
+      isActive: true,
       tenant: {
         OR: [{ type: "PLATFORM" }, { isPlatform: true }],
       },

@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     });
 
     const summary = await getTenantReportsSummary(createDalContext(ctx), {
-      tenantId: payload.tenantId && ctx.role !== "ROOT" ? payload.tenantId : scoped.targetTenantId,
+      tenantId: ctx.role === "ROOT" && payload.tenantId ? payload.tenantId : scoped.targetTenantId,
     });
     return NextResponse.json({ ok: true, summary });
   } catch (error) {

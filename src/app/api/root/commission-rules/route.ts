@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       tenantId: ctx.tenantId,
       userId: ctx.userId,
     });
-    const targetTenantId = tenantId && ctx.role !== "ROOT" ? tenantId : scoped.targetTenantId;
+    const targetTenantId = ctx.role === "ROOT" && tenantId ? tenantId : scoped.targetTenantId;
 
     const rules = await prisma.commissionRule.findMany({
       where: {
@@ -58,8 +58,7 @@ export async function POST(request: Request) {
       tenantId: ctx.tenantId,
       userId: ctx.userId,
     });
-    const targetTenantId =
-      payload.tenantId && ctx.role !== "ROOT" ? payload.tenantId : scoped.targetTenantId;
+    const targetTenantId = ctx.role === "ROOT" && payload.tenantId ? payload.tenantId : scoped.targetTenantId;
 
     const rule = await prisma.commissionRule.create({
       data: {

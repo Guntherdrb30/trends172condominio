@@ -11,7 +11,11 @@ type PrivilegedPayload = {
 };
 
 function getSigningSecret() {
-  return process.env.AUTH_SECRET ?? process.env.ROOT_MASTER_KEY ?? "dev_secret";
+  const secret = process.env.AUTH_SECRET ?? process.env.ROOT_MASTER_KEY;
+  if (process.env.NODE_ENV === "production" && !secret) {
+    throw new Error("AUTH_SECRET or ROOT_MASTER_KEY must be configured in production.");
+  }
+  return secret ?? "dev_secret";
 }
 
 function toBase64Url(value: string) {
@@ -24,6 +28,15 @@ function fromBase64Url(value: string) {
 
 function sign(data: string) {
   return crypto.createHmac("sha256", getSigningSecret()).update(data).digest("base64url");
+}
+
+function safeEqual(a: string, b: string) {
+  const aBuffer = Buffer.from(a);
+  const bBuffer = Buffer.from(b);
+  if (aBuffer.length !== bBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(aBuffer, bBuffer);
 }
 
 export function createPrivilegedToken(userId: string, tenantId: string) {
@@ -44,12 +57,15 @@ export function verifyPrivilegedToken(token: string | undefined | null) {
   if (!encoded || !signature) return null;
 
   const expectedSignature = sign(encoded);
-  if (expectedSignature !== signature) return null;
+  if (!safeEqual(expectedSignature, signature)) return null;
 
-  const payload = JSON.parse(fromBase64Url(encoded)) as PrivilegedPayload;
-  if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-
-  return payload;
+  try {
+    const payload = JSON.parse(fromBase64Url(encoded)) as PrivilegedPayload;
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 export async function readPrivilegedCookie() {
@@ -65,4 +81,3 @@ export function getPrivilegedCookieName() {
 export function getPrivilegedTtlSeconds() {
   return TTL_SECONDS;
 }
-

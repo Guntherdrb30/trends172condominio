@@ -22,8 +22,11 @@ const createAssetSchema = z.object({
 });
 
 function signAssetPayload(payload: string) {
-  const secret = process.env.ROOT_MASTER_KEY ?? process.env.AUTH_SECRET ?? "dev_blob_secret";
-  return crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  const secret = process.env.ROOT_MASTER_KEY ?? process.env.AUTH_SECRET;
+  if (process.env.NODE_ENV === "production" && !secret) {
+    throw new Error("ROOT_MASTER_KEY or AUTH_SECRET must be configured in production.");
+  }
+  return crypto.createHmac("sha256", secret ?? "dev_blob_secret").update(payload).digest("base64url");
 }
 
 function base64UrlEncode(value: string) {
@@ -34,9 +37,82 @@ function base64UrlDecode(value: string) {
   return Buffer.from(value, "base64url").toString("utf8");
 }
 
+function safeEqual(a: string, b: string) {
+  const aBuffer = Buffer.from(a);
+  const bBuffer = Buffer.from(b);
+  if (aBuffer.length !== bBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(aBuffer, bBuffer);
+}
+
 export async function createAsset(ctx: DalContext, input: z.input<typeof createAssetSchema>) {
   assertTenantContext(ctx);
   const payload = createAssetSchema.parse(input);
+  const [sale, reservation, payment, typology, amenityInstance, unit] = await Promise.all([
+    payload.saleId
+      ? prisma.sale.findFirst({
+          where: {
+            id: payload.saleId,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+    payload.reservationId
+      ? prisma.reservation.findFirst({
+          where: {
+            id: payload.reservationId,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+    payload.paymentId
+      ? prisma.payment.findFirst({
+          where: {
+            id: payload.paymentId,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+    payload.typologyId
+      ? prisma.typology.findFirst({
+          where: {
+            id: payload.typologyId,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+    payload.amenityInstanceId
+      ? prisma.amenityInstance.findFirst({
+          where: {
+            id: payload.amenityInstanceId,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+    payload.unitId
+      ? prisma.unit.findFirst({
+          where: {
+            id: payload.unitId,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (payload.saleId && !sale) throw new Error("Sale not found for tenant.");
+  if (payload.reservationId && !reservation) throw new Error("Reservation not found for tenant.");
+  if (payload.paymentId && !payment) throw new Error("Payment not found for tenant.");
+  if (payload.typologyId && !typology) throw new Error("Typology not found for tenant.");
+  if (payload.amenityInstanceId && !amenityInstance) throw new Error("Amenity instance not found for tenant.");
+  if (payload.unitId && !unit) throw new Error("Unit not found for tenant.");
+
   const asset = await prisma.asset.create({
     data: {
       tenantId: ctx.tenantId,
@@ -136,18 +212,21 @@ export function verifyAssetToken(token: string) {
   }
 
   const expected = signAssetPayload(payload);
-  if (expected !== signature) {
+  if (!safeEqual(expected, signature)) {
     return null;
   }
 
-  const parsed = JSON.parse(base64UrlDecode(payload)) as {
-    assetId: string;
-    tenantId: string;
-    exp: number;
-  };
-  if (parsed.exp < Math.floor(Date.now() / 1000)) {
+  try {
+    const parsed = JSON.parse(base64UrlDecode(payload)) as {
+      assetId: string;
+      tenantId: string;
+      exp: number;
+    };
+    if (parsed.exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+    return parsed;
+  } catch {
     return null;
   }
-  return parsed;
 }
-

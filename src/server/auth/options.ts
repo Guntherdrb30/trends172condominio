@@ -11,12 +11,13 @@ function sortByRolePriority<T extends { role: Role }>(items: T[]) {
   return [...items].sort((a, b) => rolePriority.indexOf(a.role) - rolePriority.indexOf(b.role));
 }
 
+const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? process.env.ROOT_MASTER_KEY;
+if (process.env.NODE_ENV === "production" && !authSecret) {
+  throw new Error("AUTH_SECRET or NEXTAUTH_SECRET must be configured in production.");
+}
+
 export const authOptions: NextAuthOptions = {
-  secret:
-    process.env.AUTH_SECRET ??
-    process.env.NEXTAUTH_SECRET ??
-    process.env.ROOT_MASTER_KEY ??
-    "replace-me-in-production",
+  secret: authSecret ?? "dev-auth-secret-change-me",
   session: {
     strategy: "jwt",
   },
@@ -38,7 +39,11 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase() },
           include: {
-            memberships: true,
+            memberships: {
+              where: {
+                isActive: true,
+              },
+            },
           },
         });
 

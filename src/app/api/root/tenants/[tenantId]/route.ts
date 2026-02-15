@@ -35,6 +35,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     requirePrivilegedMode(ctx);
 
     const { tenantId } = await params;
+    if (ctx.role !== "ROOT" && tenantId !== ctx.tenantId) {
+      return NextResponse.json({ error: "Cross-tenant access denied" }, { status: 403 });
+    }
     const payload = updateTenantSchema.parse(await request.json());
     const tenant = await prisma.tenant.update({
       where: {

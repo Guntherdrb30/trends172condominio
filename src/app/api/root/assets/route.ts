@@ -29,8 +29,7 @@ export async function GET(request: Request) {
       tenantId: ctx.tenantId,
       userId: ctx.userId,
     });
-    const targetTenantId =
-      payload.tenantId && ctx.role !== "ROOT" ? payload.tenantId : scoped.targetTenantId;
+    const targetTenantId = ctx.role === "ROOT" && payload.tenantId ? payload.tenantId : scoped.targetTenantId;
 
     const assets = await prisma.asset.findMany({
       where: {

@@ -89,10 +89,35 @@ export async function registerCondoPayment(
         id: payload.chargeId,
         tenantId: ctx.tenantId,
       },
+      select: {
+        id: true,
+        ownerAccountId: true,
+        paidAmount: true,
+        amount: true,
+        lateFeeAmount: true,
+        dueDate: true,
+      },
     });
 
     if (!charge) {
       throw new Error("Charge not found.");
+    }
+
+    if (ctx.role === "CLIENT") {
+      if (!ctx.userId) {
+        throw new Error("Authenticated client required.");
+      }
+      const ownerAccount = await tx.ownerAccount.findFirst({
+        where: {
+          id: charge.ownerAccountId,
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+        },
+        select: { id: true },
+      });
+      if (!ownerAccount) {
+        throw new Error("Charge does not belong to authenticated client.");
+      }
     }
 
     const payment = await tx.condoFeePayment.create({
@@ -143,10 +168,15 @@ export async function registerCondoPayment(
 
 export async function getCondoStatement(ctx: DalContext, ownerAccountId: string) {
   assertTenantContext(ctx);
+  if (ctx.role === "CLIENT" && !ctx.userId) {
+    throw new Error("Authenticated client required.");
+  }
+
   return prisma.ownerAccount.findFirst({
     where: {
       id: ownerAccountId,
       tenantId: ctx.tenantId,
+      userId: ctx.role === "CLIENT" ? ctx.userId : undefined,
     },
     include: {
       condoCharges: {
@@ -165,4 +195,3 @@ export async function getCondoStatement(ctx: DalContext, ownerAccountId: string)
     },
   });
 }
-

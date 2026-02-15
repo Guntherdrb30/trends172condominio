@@ -19,12 +19,45 @@ export type CreateAppointmentInput = z.input<typeof createAppointmentSchema>;
 export async function createAppointment(ctx: DalContext, input: CreateAppointmentInput) {
   assertTenantContext(ctx);
   const payload = createAppointmentSchema.parse(input);
+  const appointmentUserId = payload.userId ?? ctx.userId;
+
+  if (ctx.role === "CLIENT" && appointmentUserId !== ctx.userId) {
+    throw new Error("Clients can only create appointments for themselves.");
+  }
+
+  const [lead, unit] = await Promise.all([
+    payload.leadId
+      ? prisma.lead.findFirst({
+          where: {
+            id: payload.leadId,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+    payload.unitId
+      ? prisma.unit.findFirst({
+          where: {
+            id: payload.unitId,
+            tenantId: ctx.tenantId,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (payload.leadId && !lead) {
+    throw new Error("Lead not found for tenant.");
+  }
+  if (payload.unitId && !unit) {
+    throw new Error("Unit not found for tenant.");
+  }
 
   const appointment = await prisma.appointment.create({
     data: {
       tenantId: ctx.tenantId,
       leadId: payload.leadId,
-      userId: payload.userId ?? ctx.userId,
+      userId: appointmentUserId,
       unitId: payload.unitId,
       scheduledAt: payload.scheduledAt,
       channel: payload.channel,
@@ -67,4 +100,3 @@ export async function listAppointments(ctx: DalContext, from?: Date, to?: Date) 
     },
   });
 }
-

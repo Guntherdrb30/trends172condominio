@@ -15,21 +15,6 @@ export type TenantContext = {
   privileged: boolean;
 };
 
-function rolePriority(role: Role) {
-  switch (role) {
-    case "ROOT":
-      return 1;
-    case "ADMIN":
-      return 2;
-    case "SELLER":
-      return 3;
-    case "CLIENT":
-      return 4;
-    default:
-      return 10;
-  }
-}
-
 export async function getTenantContext(): Promise<TenantContext | null> {
   const headerStore = await headers();
   const host = normalizeHost(headerStore.get("x-tenant-host") ?? headerStore.get("host")) ?? "unknown-host";
@@ -85,15 +70,16 @@ export async function getTenantContext(): Promise<TenantContext | null> {
 
   const session = await getAuthSession();
   const userId = session?.user?.id;
-  let role: Role | undefined = session?.user?.role;
+  const sessionRole = session?.user?.role;
   let tenantId = fallbackDomain?.tenantId;
   let tenantSlug = fallbackDomain?.tenant?.slug;
 
-  if (userId && role === "ROOT") {
+  if (userId && sessionRole === "ROOT") {
     const platformRootMembership = await prisma.membership.findFirst({
       where: {
         userId,
         role: "ROOT",
+        isActive: true,
         tenant: {
           OR: [{ type: "PLATFORM" }, { isPlatform: true }],
         },
@@ -117,20 +103,25 @@ export async function getTenantContext(): Promise<TenantContext | null> {
     return null;
   }
 
-  if (userId && !role) {
-    const memberships = await prisma.membership.findMany({
+  let role: Role | undefined;
+  if (userId) {
+    const membership = await prisma.membership.findFirst({
       where: {
         userId,
         tenantId,
+        isActive: true,
       },
-      orderBy: {
-        createdAt: "asc",
+      select: {
+        role: true,
       },
     });
-    role = memberships.sort((a, b) => rolePriority(a.role) - rolePriority(b.role))[0]?.role;
+    role = membership?.role;
   }
 
-  const privileged = Boolean(await readPrivilegedCookie());
+  const privilegedToken = await readPrivilegedCookie();
+  const privileged = Boolean(
+    userId && privilegedToken && privilegedToken.userId === userId && privilegedToken.tenantId === tenantId,
+  );
 
   return {
     tenantId,

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
@@ -9,11 +9,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type AppLanguage, getDictionary } from "@/lib/i18n";
 
+const DEFAULT_NEXT_PATH = "/app/client";
+
+function sanitizeNextPath(value: string | null) {
+  if (!value) return DEFAULT_NEXT_PATH;
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return DEFAULT_NEXT_PATH;
+  }
+  return value;
+}
+
 export function LoginForm({ language = "ES" }: { language?: AppLanguage }) {
   const t = getDictionary(language);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") ?? "/app/client";
+  const nextPath = sanitizeNextPath(searchParams.get("next"));
   const [email, setEmail] = useState("client@articimento.local");
   const [password, setPassword] = useState("client123");
   const [error, setError] = useState("");
