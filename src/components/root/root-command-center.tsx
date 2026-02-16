@@ -296,7 +296,7 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
   return (
     <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
       <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Root Console</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Consola Root</p>
         <select className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={tenantId} onChange={(event) => void handleTenantChange(event.target.value)}>
           {tenants.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
@@ -345,7 +345,15 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
             <Input placeholder="Logo URL" value={site.logoUrl} onChange={(e) => setSite((p) => ({ ...p, logoUrl: e.target.value }))} />
             <input type="file" accept="image/*" onChange={(event) => void uploadLogo(event)} disabled={logoUploading} />
             {logoUploading ? <p className="text-xs text-slate-600">Subiendo logo...</p> : null}
-            <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={site.defaultLanguage} onChange={(e) => setSite((p) => ({ ...p, defaultLanguage: e.target.value as "ES" | "EN" | "PT" }))}><option value="ES">Espanol</option><option value="EN">English</option><option value="PT">Portugues</option></select>
+            <select
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              value={site.defaultLanguage}
+              onChange={(e) => setSite((p) => ({ ...p, defaultLanguage: e.target.value as "ES" | "EN" | "PT" }))}
+            >
+              <option value="ES">Español (principal)</option>
+              <option value="EN">English</option>
+              <option value="PT">Português</option>
+            </select>
             <div className="grid gap-2 sm:grid-cols-2"><Input placeholder="Color primario" value={site.primaryColor} onChange={(e) => setSite((p) => ({ ...p, primaryColor: e.target.value }))} /><Input placeholder="Color secundario" value={site.secondaryColor} onChange={(e) => setSite((p) => ({ ...p, secondaryColor: e.target.value }))} /></div>
             <Input placeholder="Hero title" value={site.heroTitle} onChange={(e) => setSite((p) => ({ ...p, heroTitle: e.target.value }))} />
             <Input placeholder="Hero subtitle" value={site.heroSubtitle} onChange={(e) => setSite((p) => ({ ...p, heroSubtitle: e.target.value }))} />

@@ -90,7 +90,7 @@ export function NewProjectWizard() {
   const [primaryColor, setPrimaryColor] = useState("#0f172a");
   const [secondaryColor, setSecondaryColor] = useState("#0ea5e9");
   const [defaultLanguage, setDefaultLanguage] = useState<Language>("ES");
-  const [supportedLocales, setSupportedLocales] = useState<Locale[]>(["es", "en"]);
+  const [supportedLocales, setSupportedLocales] = useState<Locale[]>(["es"]);
   const [selfSignupEnabled, setSelfSignupEnabled] = useState(true);
   const [reservationTtlHours, setReservationTtlHours] = useState(48);
   const [sellerCommissionPct, setSellerCommissionPct] = useState(3);

@@ -60,7 +60,7 @@ const createProjectSchema = z.object({
   primaryColor: z.string().max(40).optional(),
   secondaryColor: z.string().max(40).optional(),
   defaultLanguage: z.enum(["ES", "EN", "PT"]).default("ES"),
-  supportedLocales: z.array(z.enum(["es", "en", "pt"])).min(1).max(3).default(["es", "en"]),
+  supportedLocales: z.array(z.enum(["es", "en", "pt"])).min(1).max(3).default(["es"]),
   domainHost: z.string().min(1).max(180).optional(),
   selfSignupEnabled: z.boolean().default(true),
   reservationTtlHours: z.coerce.number().int().min(1).max(168).default(48),
