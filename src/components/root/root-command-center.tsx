@@ -46,6 +46,7 @@ function money(v: number) {
 export function RootCommandCenter({ initialSection = "overview" }: { initialSection?: Section }) {
   const [section, setSection] = useState<Section>(initialSection);
   const [status, setStatus] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
   const [users, setUsers] = useState<Array<{ membershipId: string; role: string; user: { name: string | null; email: string } }>>([]);
@@ -259,6 +260,34 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
     await loadTenantData(tenantId);
   }
 
+  async function uploadLogo(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setLogoUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("meta", JSON.stringify({ type: "OTHER" }));
+      const upload = await request<{ blobUrl?: string; hasBlobUpload: boolean; warning?: string }>(
+        "/api/blob/upload",
+        { method: "POST", body: form },
+      );
+
+      if (upload.blobUrl) {
+        setSite((prev) => ({ ...prev, logoUrl: upload.blobUrl ?? "" }));
+        setStatus("Logo subido. Pulsa 'Guardar sitio' para aplicarlo.");
+      } else {
+        setStatus(upload.warning ?? "Archivo registrado, pero Blob no esta configurado.");
+      }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "No se pudo subir el logo.");
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
   async function openAsset(assetId: string) {
     const resp = await request<{ signedUrl: string }>(`/api/blob/signed-url?assetId=${assetId}`);
     window.open(resp.signedUrl, "_blank", "noopener,noreferrer");
@@ -314,6 +343,8 @@ export function RootCommandCenter({ initialSection = "overview" }: { initialSect
           <Card><CardHeader><CardTitle>Branding y configuracion global</CardTitle></CardHeader><CardContent className="grid gap-2">
             <Input placeholder="Nombre del sitio" value={site.name} onChange={(e) => setSite((p) => ({ ...p, name: e.target.value }))} />
             <Input placeholder="Logo URL" value={site.logoUrl} onChange={(e) => setSite((p) => ({ ...p, logoUrl: e.target.value }))} />
+            <input type="file" accept="image/*" onChange={(event) => void uploadLogo(event)} disabled={logoUploading} />
+            {logoUploading ? <p className="text-xs text-slate-600">Subiendo logo...</p> : null}
             <select className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={site.defaultLanguage} onChange={(e) => setSite((p) => ({ ...p, defaultLanguage: e.target.value as "ES" | "EN" | "PT" }))}><option value="ES">Espanol</option><option value="EN">English</option><option value="PT">Portugues</option></select>
             <div className="grid gap-2 sm:grid-cols-2"><Input placeholder="Color primario" value={site.primaryColor} onChange={(e) => setSite((p) => ({ ...p, primaryColor: e.target.value }))} /><Input placeholder="Color secundario" value={site.secondaryColor} onChange={(e) => setSite((p) => ({ ...p, secondaryColor: e.target.value }))} /></div>
             <Input placeholder="Hero title" value={site.heroTitle} onChange={(e) => setSite((p) => ({ ...p, heroTitle: e.target.value }))} />
